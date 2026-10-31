@@ -22,10 +22,23 @@ export class ApiError extends Error {
   }
 }
 
+/** Turns a FastAPI error body into one readable message. */
 function detailMessage(body: unknown, fallback: string): string {
   if (body && typeof body === "object" && "detail" in body) {
     const detail = (body as { detail: unknown }).detail;
     if (typeof detail === "string") return detail;
+    // Validation errors arrive as a list of { loc, msg } objects.
+    if (Array.isArray(detail)) {
+      const messages = detail
+        .map((item) => {
+          if (!item || typeof item !== "object" || !("msg" in item)) return null;
+          const field = Array.isArray(item.loc) ? String(item.loc.at(-1)) : "";
+          const msg = String(item.msg);
+          return field && field !== "body" ? `${field}: ${msg}` : msg;
+        })
+        .filter((m): m is string => Boolean(m));
+      if (messages.length > 0) return messages.join(". ");
+    }
   }
   return fallback;
 }
