@@ -278,6 +278,16 @@ export function recordPayment(body: {
   return apiRequest<Payment>("/api/staff/payments", { method: "POST", body });
 }
 
+// --- Account ---
+
+/** Changes the signed-in staff member's password. Other sessions are signed out. */
+export function changeStaffPassword(currentPassword: string, newPassword: string) {
+  return apiRequest<void>("/api/staff/account/password", {
+    method: "POST",
+    body: { current_password: currentPassword, new_password: newPassword },
+  });
+}
+
 // --- Dashboard ---
 
 export function getStaffDashboard(params: { date_from?: string; date_to?: string }) {
