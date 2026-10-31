@@ -183,7 +183,43 @@ These features are potential future extensions and are not assumed to be part of
 
 ## 10. Getting Started
 
-Development setup instructions, environment variables, installation commands and deployment steps will be added after the technology stack and application architecture are finalized.
+See `backend/README.md` for backend details.
+
+```bash
+# Backend (http://localhost:8000)
+cd backend
+uv sync
+cp .env.example .env          # set DATABASE_URL and JWT_SECRET_KEY
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload
+
+# Frontend (http://localhost:3000)
+cd frontend
+npm install
+npm run dev
+```
+
+### Demo Login Accounts (development only)
+
+Sign in at http://localhost:3000/login, choose the matching role in **Login as**, and enter the email and password.
+
+| Login as | Email | Password | Lands on |
+|---|---|---|---|
+| Admin | `admin@brightloop.com` | Admin@123456 | `/admin` |
+| Staff | `staff@brightloop.com` | `Staff@Brightloop2026` | `/staff` |
+| Customer | `customer@brightloop.com` | `Customer@Brightloop2026` | `/portal` |
+
+These accounts are not created automatically. On a new database, create them from `backend/`:
+
+```bash
+uv run python -m app.cli create-admin --email admin@brightloop.com
+uv run python -m app.cli create-user --role STAFF --email staff@brightloop.com
+uv run python -m app.cli create-user --role CUSTOMER --email customer@brightloop.com
+```
+
+Each command prompts for the password (minimum 12 characters).
+
+> **Warning:** These credentials are public. Use them only on local or demo databases, never in production.
 
 ## 11. Project Status
 
