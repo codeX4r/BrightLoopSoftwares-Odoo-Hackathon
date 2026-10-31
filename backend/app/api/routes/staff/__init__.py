@@ -7,17 +7,21 @@ from fastapi import APIRouter
 
 from app.api.routes.staff import (
     account,
+    catalog,
     customers,
     dashboard,
     invoices,
     payments,
     subscriptions,
+    templates,
 )
 
 router = APIRouter(prefix="/api/staff")
 router.include_router(account.router)
 router.include_router(dashboard.router)
 router.include_router(customers.router)
+router.include_router(catalog.router)
+router.include_router(templates.router)
 router.include_router(subscriptions.router)
 router.include_router(invoices.router)
 router.include_router(payments.router)

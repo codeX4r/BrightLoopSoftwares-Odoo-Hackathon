@@ -39,6 +39,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     for number in run.invoice_numbers:
         print(f"  {number}")
+    if run.auto_closed:
+        print(f"Closed after expiry: {', '.join(run.auto_closed)}")
     return 0
 
 

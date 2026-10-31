@@ -30,9 +30,9 @@ export const ADMIN_NAV: AdminNavItem[] = [
   },
   { label: "Subscriptions", href: "/staff/subscriptions", ready: true, staffPanel: true },
   { label: "Invoices", href: "/staff/invoices", ready: true, staffPanel: true },
-  { label: "Taxes", href: "/admin/taxes", ready: false },
-  { label: "Discounts", href: "/admin/discounts", ready: false },
+  { label: "Taxes", href: "/admin/taxes", ready: true },
+  { label: "Discounts", href: "/admin/discounts", ready: true },
   { label: "Payments", href: "/staff/payments", ready: true, staffPanel: true },
-  { label: "Reports", href: "/admin/reports", ready: false },
-  { label: "Settings", href: "/admin/settings", ready: false },
+  { label: "Reports", href: "/admin/reports", ready: true },
+  { label: "Settings", href: "/admin/settings", ready: true },
 ];

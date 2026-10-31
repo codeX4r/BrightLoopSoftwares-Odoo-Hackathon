@@ -56,6 +56,9 @@ export type SubscriptionSummary = {
 
 export type Subscription = SubscriptionSummary & {
   rejection_reason: string | null;
+  paused_at: string | null;
+  renewed_at: string | null;
+  plan_rules: PlanRules | null;
   payment_terms_days: number;
   notes: string | null;
   quotation_sent_at: string | null;
@@ -94,6 +97,9 @@ export type InvoiceSummary = {
   period_start: string;
   period_end: string;
   subtotal: Decimal;
+  /** Admin discount applied before tax; total = subtotal - discount_total + tax_total. */
+  discount_total: Decimal;
+  discount_name: string | null;
   tax_total: Decimal;
   total: Decimal;
   amount_paid: Decimal;
@@ -257,7 +263,20 @@ export type SubscriptionAction =
   | { action: "revert-to-draft" }
   | { action: "confirm" }
   | { action: "activate"; body: { start_date: string | null; expiry_date: string | null } }
-  | { action: "close" };
+  | { action: "close" }
+  | { action: "pause" }
+  | { action: "resume" }
+  | { action: "renew" };
+
+/** What the subscription's admin plan allows. Null when it has no plan. */
+export type PlanRules = {
+  plan_id: string;
+  minimum_quantity: number;
+  allow_pause: boolean;
+  allow_renewal: boolean;
+  allow_early_closure: boolean;
+  auto_close_on_expiry: boolean;
+};
 
 export function runSubscriptionAction(id: string, request: SubscriptionAction) {
   return apiRequest<Subscription>(

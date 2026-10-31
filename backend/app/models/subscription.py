@@ -14,6 +14,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -96,6 +97,18 @@ class Subscription(Base):
     # five-stage lifecycle is unchanged; these say why it closed.
     rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rejection_reason: Mapped[str | None] = mapped_column(Text)
+    # Admin plan this was offered on. plan_name and billing_frequency are copied from it,
+    # so the plan's rules (pause, renew, early close, auto-close) apply to this row.
+    plan_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("subscription_plans.id", ondelete="SET NULL"), index=True
+    )
+    # Default validity when the quotation is sent (taken from a template if used).
+    quotation_validity_days: Mapped[int] = mapped_column(
+        default=15, server_default="15"
+    )
+    # Set while an ACTIVE subscription is paused: billing skips it until resumed.
+    paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    renewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -104,6 +117,7 @@ class Subscription(Base):
     )
 
     customer: Mapped[User] = relationship(foreign_keys=[customer_id])
+    plan: Mapped["SubscriptionPlan | None"] = relationship()  # noqa: F821
     lines: Mapped[list["SubscriptionLine"]] = relationship(
         back_populates="subscription",
         cascade="all, delete-orphan",
@@ -132,6 +146,17 @@ class SubscriptionLine(Base):
         ForeignKey("subscriptions.id", ondelete="CASCADE"), index=True
     )
     position: Mapped[int] = mapped_column(default=0)
+    # Catalog references (optional: free-text lines have none). Price and tax are still
+    # copied below, so editing the catalog never changes this line.
+    product_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("products.id", ondelete="SET NULL"), index=True
+    )
+    variant_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="SET NULL")
+    )
+    # The line for the subscription plan itself (price from the plan, quantity checked
+    # against the plan's minimum). At most one per subscription.
+    is_plan_line: Mapped[bool] = mapped_column(default=False, server_default=false())
     description: Mapped[str] = mapped_column(String(200))
     quantity: Mapped[int]
     unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2))

@@ -68,6 +68,7 @@ def run_billing(
         subscriptions_billed=run.subscriptions_billed,
         invoices_created=len(run.invoice_numbers),
         invoice_numbers=run.invoice_numbers,
+        auto_closed=run.auto_closed,
     )
 
 

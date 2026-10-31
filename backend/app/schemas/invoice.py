@@ -19,6 +19,7 @@ class InvoiceLineRead(BaseModel):
     unit_price: Decimal
     tax_rate: Decimal
     subtotal: Decimal
+    discount_amount: Decimal
     tax_amount: Decimal
     total: Decimal
 
@@ -53,7 +54,10 @@ class InvoiceSummary(BaseModel):
     due_date: date
     period_start: date
     period_end: date
+    # total = subtotal - discount_total + tax_total (tax is charged after the discount).
     subtotal: Decimal
+    discount_total: Decimal
+    discount_name: str | None
     tax_total: Decimal
     total: Decimal
     amount_paid: Decimal
@@ -83,6 +87,8 @@ class BillingRunResult(BaseModel):
     subscriptions_billed: int
     invoices_created: int
     invoice_numbers: list[str]
+    # Subscriptions closed because they expired and their plan auto-closes.
+    auto_closed: list[str] = []
 
 
 def is_overdue(invoice: Invoice, today: date) -> bool:
@@ -114,6 +120,8 @@ def _summary_fields(invoice: Invoice, today: date) -> dict:
         "period_start": invoice.period_start,
         "period_end": invoice.period_end,
         "subtotal": invoice.subtotal,
+        "discount_total": invoice.discount_total,
+        "discount_name": invoice.discount_name,
         "tax_total": invoice.tax_total,
         "total": invoice.total,
         "amount_paid": invoice.amount_paid,

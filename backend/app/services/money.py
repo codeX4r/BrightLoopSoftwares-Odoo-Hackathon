@@ -23,3 +23,18 @@ def line_amounts(quantity: int, unit_price: Decimal, tax_rate: Decimal) -> LineA
     subtotal = round_money(Decimal(quantity) * unit_price)
     tax = round_money(subtotal * tax_rate / Decimal(100))
     return LineAmounts(subtotal=subtotal, tax=tax, total=subtotal + tax)
+
+
+def allocate(amount: Decimal, weights: list[Decimal]) -> list[Decimal]:
+    """Splits `amount` across lines in proportion to `weights`, to the paisa.
+
+    Rounding is settled on the last line with weight, so the shares always add up to
+    `amount` exactly.
+    """
+    total = sum(weights, ZERO)
+    if amount <= 0 or total <= 0:
+        return [ZERO for _ in weights]
+    shares = [round_money(amount * w / total) for w in weights]
+    last = max(i for i, w in enumerate(weights) if w > 0)
+    shares[last] += amount - sum(shares, ZERO)
+    return shares

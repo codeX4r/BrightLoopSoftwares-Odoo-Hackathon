@@ -36,6 +36,13 @@ export function acceptQuotation(id: string) {
   });
 }
 
+/** Pause, resume, renew or close early, as far as the subscription's plan allows. */
+export function subscriptionAction(id: string, action: "pause" | "resume" | "renew" | "close") {
+  return apiRequest<Subscription>(`/api/portal/subscriptions/${encodeURIComponent(id)}/${action}`, {
+    method: "POST",
+  });
+}
+
 /** Declines a quotation: QUOTATION -> CLOSED, with an optional reason shown to staff. */
 export function rejectQuotation(id: string, reason: string | null) {
   return apiRequest<Subscription>(`/api/portal/subscriptions/${encodeURIComponent(id)}/reject`, {

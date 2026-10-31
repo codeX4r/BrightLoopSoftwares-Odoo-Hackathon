@@ -9,15 +9,17 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.customer_profile import CustomerProfile
+from app.models.discount import Discount, DiscountRedemption
 from app.models.invoice import Invoice, InvoiceStatus
 from app.models.payment import Payment
 from app.models.user import User
-from app.services import clock
-from app.services.errors import BusinessRuleError, NotFoundError
+from app.services import clock, discount_service
+from app.services.errors import BusinessRuleError, ConflictError, NotFoundError
+from app.services.money import ZERO
 
 NOT_FOUND = "Invoice not found"
 # Drafts are internal until staff confirm them.
@@ -137,10 +139,42 @@ def _save(db: Session, invoice: Invoice) -> Invoice:
     return get_invoice(db, invoice.id)
 
 
+def _drop_discount(invoice: Invoice) -> None:
+    """Re-prices the invoice without its discount (used when it can no longer be counted)."""
+    from app.services.billing_service import price_lines
+
+    priced = price_lines(
+        [(None, ln.quantity, ln.unit_price, ln.tax_rate) for ln in invoice.lines], None
+    )
+    for line, p in zip(invoice.lines, priced, strict=True):
+        line.discount_amount = p.discount
+        line.tax_amount = p.tax
+        line.total = p.total
+    invoice.discount_id = None
+    invoice.discount_name = None
+    invoice.discount_total = sum((p.discount for p in priced), ZERO)
+    invoice.tax_total = sum((p.tax for p in priced), ZERO)
+    invoice.total = invoice.subtotal - invoice.discount_total + invoice.tax_total
+
+
 def confirm(db: Session, invoice_id: uuid.UUID) -> Invoice:
     invoice = get_invoice(db, invoice_id, for_update=True)
     if invoice.status != InvoiceStatus.DRAFT:
         raise BusinessRuleError(f"Cannot confirm an invoice in {invoice.status} status")
+    if invoice.discount_id is not None:
+        # A discount use is counted when the invoice is confirmed. If the discount ran out
+        # or expired since the draft was made, the invoice is confirmed without it.
+        try:
+            with db.begin_nested():
+                discount_service.redeem(
+                    db,
+                    discount_id=invoice.discount_id,
+                    invoice_id=invoice.id,
+                    amount=invoice.discount_total,
+                    as_of=invoice.invoice_date,
+                )
+        except ConflictError:
+            _drop_discount(invoice)
     now = clock.now_utc()
     invoice.confirmed_at = now
     if invoice.total == 0:
@@ -159,6 +193,18 @@ def cancel(db: Session, invoice_id: uuid.UUID) -> Invoice:
         raise BusinessRuleError(f"Cannot cancel an invoice in {invoice.status} status")
     if invoice.amount_paid > 0:
         raise BusinessRuleError("Cannot cancel an invoice that has payments recorded")
+    # Give the discount use back, so a cancelled invoice doesn't count toward its limit.
+    redemption = db.scalar(
+        select(DiscountRedemption).where(DiscountRedemption.invoice_id == invoice.id)
+    )
+    if redemption is not None:
+        db.execute(
+            update(Discount)
+            .where(Discount.id == redemption.discount_id, Discount.usage_count > 0)
+            .values(usage_count=Discount.usage_count - 1)
+            .execution_options(synchronize_session=False)
+        )
+        db.delete(redemption)
     invoice.status = InvoiceStatus.CANCELLED
     invoice.cancelled_at = clock.now_utc()
     return _save(db, invoice)

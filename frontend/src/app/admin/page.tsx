@@ -31,9 +31,11 @@ async function loadCounts(): Promise<Counts> {
   };
 }
 
-const PENDING_MODULES = [
-  { label: "Taxes and discounts", note: "Admin-configured tax and discount rules" },
-  { label: "Revenue reports", note: "Monthly and yearly revenue with date ranges" },
+const ADMIN_MODULES = [
+  { label: "Taxes", href: "/admin/taxes", note: "Tax rates and which products they apply to" },
+  { label: "Discounts", href: "/admin/discounts", note: "Fixed or % discounts with limits" },
+  { label: "Reports", href: "/admin/reports", note: "Revenue and subscriptions by date range" },
+  { label: "Settings", href: "/admin/settings", note: "Company details and invoice prefix" },
 ];
 
 export default function AdminDashboardPage() {
@@ -118,22 +120,20 @@ export default function AdminDashboardPage() {
         </section>
       )}
 
-      <section aria-label="Modules not built yet">
-        <h2 className="text-sm font-semibold text-zinc-900">Not built yet</h2>
-        <p className="mt-1 text-sm text-zinc-500">
-          These figures appear once their backend modules exist. Until then, no numbers are shown.
-        </p>
-        <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {PENDING_MODULES.map((module) => (
-            <li
-              key={module.label}
-              className="rounded-xl border border-dashed border-zinc-300 bg-white p-5"
+      <section aria-label="Rules and reports" className="space-y-3">
+        <h2 className="text-sm font-semibold text-zinc-900">Rules and reports</h2>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {ADMIN_MODULES.map((module) => (
+            <Link
+              key={module.href}
+              href={module.href}
+              className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-indigo-300"
             >
-              <p className="text-sm font-semibold text-zinc-700">{module.label}</p>
+              <p className="text-sm font-semibold text-zinc-900">{module.label}</p>
               <p className="mt-1 text-sm text-zinc-500">{module.note}</p>
-            </li>
+            </Link>
           ))}
-        </ul>
+        </div>
       </section>
 
       <div>

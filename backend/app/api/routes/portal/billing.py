@@ -80,6 +80,46 @@ def accept_quotation(
     )
 
 
+@router.post("/subscriptions/{subscription_id}/pause", response_model=SubscriptionRead)
+def pause_subscription(
+    subscription_id: uuid.UUID, customer: CustomerOnly, db: DbSession
+) -> SubscriptionRead:
+    """Pauses billing, if the subscription's plan allows it."""
+    return subscription_read(
+        subscription_service.pause(db, subscription_id, customer_id=customer.id)
+    )
+
+
+@router.post("/subscriptions/{subscription_id}/resume", response_model=SubscriptionRead)
+def resume_subscription(
+    subscription_id: uuid.UUID, customer: CustomerOnly, db: DbSession
+) -> SubscriptionRead:
+    """Resumes a paused subscription."""
+    return subscription_read(
+        subscription_service.resume(db, subscription_id, customer_id=customer.id)
+    )
+
+
+@router.post("/subscriptions/{subscription_id}/renew", response_model=SubscriptionRead)
+def renew_subscription(
+    subscription_id: uuid.UUID, customer: CustomerOnly, db: DbSession
+) -> SubscriptionRead:
+    """Extends the expiry date by one more term, if the plan allows renewal."""
+    return subscription_read(
+        subscription_service.renew(db, subscription_id, customer_id=customer.id)
+    )
+
+
+@router.post("/subscriptions/{subscription_id}/close", response_model=SubscriptionRead)
+def close_subscription(
+    subscription_id: uuid.UUID, customer: CustomerOnly, db: DbSession
+) -> SubscriptionRead:
+    """Ends the subscription early, if the plan allows early closure."""
+    return subscription_read(
+        subscription_service.close_early(db, subscription_id, customer_id=customer.id)
+    )
+
+
 @router.post("/subscriptions/{subscription_id}/reject", response_model=SubscriptionRead)
 def reject_quotation(
     subscription_id: uuid.UUID,

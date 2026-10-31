@@ -156,3 +156,27 @@ def close(
 ) -> SubscriptionRead:
     """Ends the subscription and stops future billing."""
     return subscription_read(subscription_service.close(db, subscription_id))
+
+
+@router.post("/{subscription_id}/pause", response_model=SubscriptionRead)
+def pause(
+    subscription_id: uuid.UUID, _actor: StaffOrAdmin, db: DbSession
+) -> SubscriptionRead:
+    """Stops billing until resumed, if the plan allows pausing."""
+    return subscription_read(subscription_service.pause(db, subscription_id))
+
+
+@router.post("/{subscription_id}/resume", response_model=SubscriptionRead)
+def resume(
+    subscription_id: uuid.UUID, _actor: StaffOrAdmin, db: DbSession
+) -> SubscriptionRead:
+    """Restarts billing; periods that passed while paused are not billed."""
+    return subscription_read(subscription_service.resume(db, subscription_id))
+
+
+@router.post("/{subscription_id}/renew", response_model=SubscriptionRead)
+def renew(
+    subscription_id: uuid.UUID, _actor: StaffOrAdmin, db: DbSession
+) -> SubscriptionRead:
+    """Extends the expiry date by one more term, if the plan allows renewal."""
+    return subscription_read(subscription_service.renew(db, subscription_id))

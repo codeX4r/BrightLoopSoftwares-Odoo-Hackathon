@@ -357,11 +357,58 @@ function LifecycleActions({
       )}
 
       {sub.status === "ACTIVE" && (
-        <p className="text-sm text-zinc-600">
-          Active. The next invoice is generated on{" "}
-          <span className="font-medium text-zinc-900">{formatDate(sub.next_billing_date)}</span>
-          {sub.next_billing_date === null && " (billing has ended at the expiry date)"}.
-        </p>
+        <div className="space-y-3">
+          <p className="text-sm text-zinc-600">
+            {sub.paused_at ? (
+              <>
+                <span className="font-medium text-amber-700">Paused</span> since{" "}
+                {formatDateTime(sub.paused_at)}. No invoices are generated until it&apos;s resumed.
+              </>
+            ) : (
+              <>
+                Active. The next invoice is generated on{" "}
+                <span className="font-medium text-zinc-900">
+                  {formatDate(sub.next_billing_date)}
+                </span>
+                {sub.next_billing_date === null && " (billing has ended at the expiry date)"}.
+              </>
+            )}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {sub.paused_at ? (
+              <Button busy={busy === "resume"} onClick={() => run({ action: "resume" })}>
+                Resume billing
+              </Button>
+            ) : (
+              (!sub.plan_rules || sub.plan_rules.allow_pause) && (
+                <Button
+                  variant="secondary"
+                  busy={busy === "pause"}
+                  onClick={() => run({ action: "pause" })}
+                >
+                  Pause
+                </Button>
+              )
+            )}
+            {sub.expiry_date && (!sub.plan_rules || sub.plan_rules.allow_renewal) && (
+              <Button
+                variant="secondary"
+                busy={busy === "renew"}
+                onClick={() => run({ action: "renew" })}
+              >
+                Renew for another term
+              </Button>
+            )}
+          </div>
+          {sub.plan_rules && (
+            <p className="text-xs text-zinc-500">
+              Plan rules: pause {sub.plan_rules.allow_pause ? "allowed" : "not allowed"}, renew{" "}
+              {sub.plan_rules.allow_renewal ? "allowed" : "not allowed"}, early close by the
+              customer {sub.plan_rules.allow_early_closure ? "allowed" : "not allowed"}
+              {sub.plan_rules.auto_close_on_expiry ? ", closes automatically at expiry" : ""}.
+            </p>
+          )}
+        </div>
       )}
 
       <div className="mt-5 border-t border-zinc-100 pt-4">

@@ -19,6 +19,7 @@ import {
   getMySubscription,
   isQuotationExpired,
   rejectQuotation,
+  subscriptionAction,
 } from "@/lib/portal-api";
 import { errorMessage, type Subscription } from "@/lib/staff-api";
 import { useApiData } from "@/lib/use-api-data";
@@ -61,6 +62,9 @@ export default function MySubscriptionPage() {
       />
 
       {sub.status === "QUOTATION" && <AcceptPanel sub={sub} onAccepted={setOverride} />}
+      {sub.status === "ACTIVE" && sub.plan_rules && (
+        <PlanActions sub={sub} onUpdated={setOverride} />
+      )}
       {sub.rejected_at && (
         <Alert tone="info">
           Declined on {formatDateTime(sub.rejected_at)}
@@ -172,6 +176,87 @@ export default function MySubscriptionPage() {
         </p>
       )}
     </div>
+  );
+}
+
+/** Pause, resume, renew and close early: only what the subscription's plan allows. */
+function PlanActions({
+  sub,
+  onUpdated,
+}: {
+  sub: Subscription;
+  onUpdated: (sub: Subscription) => void;
+}) {
+  const rules = sub.plan_rules!;
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmClose, setConfirmClose] = useState(false);
+
+  async function run(action: "pause" | "resume" | "renew" | "close") {
+    setBusy(action);
+    setError(null);
+    try {
+      onUpdated(await subscriptionAction(sub.id, action));
+      setConfirmClose(false);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const canRenew = rules.allow_renewal && sub.expiry_date;
+  if (!rules.allow_pause && !canRenew && !rules.allow_early_closure && !sub.paused_at) {
+    return null;
+  }
+
+  return (
+    <Card title="Manage subscription">
+      {sub.paused_at && (
+        <p className="mb-3 text-sm text-amber-700">
+          Paused since {formatDateTime(sub.paused_at)}. No invoices are generated while paused.
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {sub.paused_at ? (
+          <Button busy={busy === "resume"} onClick={() => run("resume")}>
+            Resume
+          </Button>
+        ) : (
+          rules.allow_pause && (
+            <Button variant="secondary" busy={busy === "pause"} onClick={() => run("pause")}>
+              Pause
+            </Button>
+          )
+        )}
+        {canRenew && (
+          <Button variant="secondary" busy={busy === "renew"} onClick={() => run("renew")}>
+            Renew for another term
+          </Button>
+        )}
+        {rules.allow_early_closure &&
+          (confirmClose ? (
+            <>
+              <span className="self-center text-sm text-zinc-700">End it now?</span>
+              <Button variant="danger" busy={busy === "close"} onClick={() => run("close")}>
+                Yes, close it
+              </Button>
+              <Button variant="secondary" onClick={() => setConfirmClose(false)}>
+                Keep it
+              </Button>
+            </>
+          ) : (
+            <Button variant="danger" onClick={() => setConfirmClose(true)}>
+              Close early
+            </Button>
+          ))}
+      </div>
+      {error && (
+        <div className="mt-4">
+          <Alert>{error}</Alert>
+        </div>
+      )}
+    </Card>
   );
 }
 

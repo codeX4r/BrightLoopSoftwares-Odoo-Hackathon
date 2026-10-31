@@ -23,6 +23,7 @@ from app.models.number_sequence import NumberSequence
 from app.models.password_reset import PasswordResetToken
 from app.models.payment import Payment, PaymentMethod
 from app.models.profiles import CustomerProfile, StaffProfile
+from app.models.quotation_template import QuotationTemplate, QuotationTemplateLine
 from app.models.settings import AppSettings
 
 # BillingFrequency is defined once, in subscription.py, and shared with the catalog, so
@@ -58,6 +59,8 @@ __all__ = [
     "ProductStatus",
     "ProductType",
     "ProductVariant",
+    "QuotationTemplate",
+    "QuotationTemplateLine",
     "StaffProfile",
     "Subscription",
     "SubscriptionLine",

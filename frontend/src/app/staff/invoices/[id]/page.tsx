@@ -257,6 +257,12 @@ function InvoiceDocument({ invoice }: { invoice: Invoice }) {
           <dt>Subtotal</dt>
           <dd>{formatMoney(invoice.subtotal)}</dd>
         </div>
+        {Number(invoice.discount_total) > 0 && (
+          <div className="flex justify-between text-emerald-700">
+            <dt>Discount{invoice.discount_name ? ` (${invoice.discount_name})` : ""}</dt>
+            <dd>−{formatMoney(invoice.discount_total)}</dd>
+          </div>
+        )}
         <div className="flex justify-between text-zinc-600">
           <dt>Tax</dt>
           <dd>{formatMoney(invoice.tax_total)}</dd>
