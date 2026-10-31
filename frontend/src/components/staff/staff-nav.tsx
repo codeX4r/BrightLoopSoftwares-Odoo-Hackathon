@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/staff/subscriptions", label: "Quotations & subscriptions", exact: false },
   { href: "/staff/invoices", label: "Invoices", exact: false },
   { href: "/staff/payments", label: "Payments", exact: false },
+  { href: "/staff/account", label: "Account", exact: false },
 ] as const;
 
 export function StaffNav() {

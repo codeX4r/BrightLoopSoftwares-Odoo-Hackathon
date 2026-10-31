@@ -5,9 +5,17 @@ Every route requires a STAFF (or ADMIN) account; see app.api.permissions.
 
 from fastapi import APIRouter
 
-from app.api.routes.staff import customers, dashboard, invoices, payments, subscriptions
+from app.api.routes.staff import (
+    account,
+    customers,
+    dashboard,
+    invoices,
+    payments,
+    subscriptions,
+)
 
 router = APIRouter(prefix="/api/staff")
+router.include_router(account.router)
 router.include_router(dashboard.router)
 router.include_router(customers.router)
 router.include_router(subscriptions.router)

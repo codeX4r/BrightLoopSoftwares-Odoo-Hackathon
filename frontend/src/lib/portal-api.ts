@@ -81,6 +81,17 @@ export function getMyInvoice(id: string) {
   return apiRequest<Invoice>(`/api/portal/invoices/${encodeURIComponent(id)}`);
 }
 
+/**
+ * Changes the signed-in customer's password. Other sessions are signed out; this one
+ * stays signed in. Wrong current password -> 400, weak/unchanged new password -> 422.
+ */
+export function changePassword(currentPassword: string, newPassword: string) {
+  return apiRequest<void>("/api/portal/account/password", {
+    method: "POST",
+    body: { current_password: currentPassword, new_password: newPassword },
+  });
+}
+
 /** True when a quotation's validity date has passed (compared as YYYY-MM-DD strings). */
 export function isQuotationExpired(sub: SubscriptionSummary, today: string): boolean {
   return (

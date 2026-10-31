@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/portal/subscriptions", label: "My subscriptions", exact: false },
   { href: "/portal/invoices", label: "My invoices", exact: false },
   { href: "/portal/profile", label: "My profile", exact: false },
+  { href: "/portal/account", label: "Account", exact: false },
 ] as const;
 
 export function PortalNav() {
