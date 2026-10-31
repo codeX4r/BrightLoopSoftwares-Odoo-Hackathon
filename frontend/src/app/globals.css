@@ -24,3 +24,119 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ---------- Landing page tokens (warm paper, stone cards) ---------- */
+@theme {
+  --color-paper: #fafaf7;
+  --color-ink: #2a2a27;
+  --color-muted: #82817a;
+  --color-stone: #efeee9;
+  --color-stone-line: #e4e3dd;
+  --color-bubble: #0a84ff;
+  --color-marker: #fbe3a1;
+  --color-loop: #4f46e5;
+  --color-loop-deep: #4338ca;
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.landing {
+  font-family: var(--font-landing), system-ui, sans-serif;
+  font-feature-settings: "cv11", "ss03";
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.landing h1,
+.landing h2,
+.landing h3 {
+  text-wrap: balance;
+}
+
+.landing p {
+  text-wrap: pretty;
+}
+
+/* Soft photographic-feeling backdrops for product shots. */
+.wash-meadow {
+  background:
+    radial-gradient(60% 80% at 20% 20%, #e6f0d2 0%, transparent 60%),
+    radial-gradient(70% 90% at 85% 80%, #cfe3c0 0%, transparent 65%),
+    #eef3e4;
+}
+.wash-lavender {
+  background:
+    radial-gradient(70% 90% at 80% 10%, #e3dafb 0%, transparent 60%),
+    radial-gradient(60% 80% at 10% 90%, #efe8fd 0%, transparent 60%),
+    #f1edfb;
+}
+.wash-sky {
+  background:
+    radial-gradient(50% 70% at 15% 25%, #fde3d6 0%, transparent 60%),
+    radial-gradient(60% 80% at 85% 30%, #cfe0f7 0%, transparent 60%),
+    radial-gradient(70% 90% at 50% 100%, #dbe7fb 0%, transparent 70%),
+    #e7eefb;
+}
+.wash-dusk {
+  background:
+    radial-gradient(60% 80% at 20% 90%, #f7c9b4 0%, transparent 60%),
+    radial-gradient(70% 90% at 80% 10%, #c9b8e8 0%, transparent 65%),
+    #e8d9e8;
+}
+.wash-mist {
+  background:
+    radial-gradient(60% 80% at 80% 80%, #ffe9c7 0%, transparent 60%),
+    radial-gradient(60% 80% at 20% 20%, #e4f0ec 0%, transparent 60%),
+    #f2f1ea;
+}
+
+/* One orchestrated entrance: the hero and its product window. Runs once. */
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes landing-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.rise {
+  animation: landing-rise 600ms var(--ease-out-strong) both;
+  animation-delay: var(--d, 0ms);
+}
+
+.rise-row {
+  animation-duration: 300ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise {
+    animation-name: landing-fade;
+    animation-duration: 300ms;
+  }
+}
+
+/* Pressable pills: instant feedback, never on disabled. */
+.press {
+  transition-property: scale, background-color, color;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .press:not(:disabled):active {
+    scale: 0.96;
+  }
+}
