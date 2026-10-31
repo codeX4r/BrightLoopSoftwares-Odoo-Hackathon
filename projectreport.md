@@ -1,15 +1,16 @@
-# Project report: Staff panel and Customer portal
+# Project report: Subscription Management System
 
-Last updated: 2026-10-31 13:45 IST
-Owners: Sahil (staff panel and its backend), Parth (customer portal)
-Branches: `sahil/staff` (`65338c8`) and `parth/customerManagement`, which contains all of
-`sahil/staff` plus Parth's change-password work. Both include `main`, customer signup and
-the portal.
+Last updated: 2026-10-31, about 15:00 IST
+Team: Sahil (staff panel, billing, customer backend), Parth (customer portal pages,
+change password), Adarsh (auth, admin panel: catalog, taxes, discounts, reports, settings)
+Working branch: `sahil/staff`. It contains every teammate branch: `main`,
+`sahil/customer-signup`, `parth/customerManagement` and `integration/staff-catalog`.
+Email features are left out of this report on purpose; they come later (section 9).
 
-**In one line:** the full customer journey works end to end. A customer signs up, staff send
-a quotation, the customer accepts or declines it, staff activate it, invoices are generated
-automatically, and payments are recorded. What's left mostly waits on the **admin** section
-(products, plans, taxes, discounts).
+**In one line:** all three areas exist and work on their own. Admin can manage the
+catalog, taxes, discounts, reports and settings; staff can quote, bill and collect;
+customers can sign up, accept and pay. **The main gap is the link between them:**
+quotations and invoices don't use the admin's products, plans, taxes and discounts yet.
 
 ---
 
@@ -17,143 +18,164 @@ automatically, and payments are recorded. What's left mostly waits on the **admi
 
 | Area | Status |
 |---|---|
-| Staff panel | ✅ Working. Every screen is built and tested |
-| Customer portal | ✅ Working. Every screen is built and tested |
-| Change password (customers, staff, admin) | ✅ Working (Parth, see section 3) |
-| Tests | ✅ Backend tests pass, live checks pass, frontend lint and type check pass |
-| Demo data | ✅ Loaded in Neon (49 customers, most with a year of history) |
-| Pushed to GitHub | ✅ `sahil/staff` at 13:37; `parth/customerManagement` at 13:45 |
-| Waiting on admin | ⛔ Products, plans, taxes, discounts (see section 4) |
+| Admin panel (`/admin`) | 🟡 Screens and API built (Adarsh). Some labels are stale and the page can render broken in dev (section 5) |
+| Staff panel (`/staff`) | ✅ Working. Quotation lines are still typed in by hand, not picked from the catalog |
+| Customer portal (`/portal`) | ✅ Working. No pause, renew or early close buttons yet |
+| Admin ↔ staff link (catalog in quotations, tax rules, discounts, plan rules) | 🟡 About 40% done: backend drafted but not finished (section 4, item 1) |
+| Backend tests | ✅ 306 pass, 2 skipped (they need a real Postgres) |
+| Frontend | ✅ Lint, type check and production build pass |
+| Database (Neon) | ✅ Up to date: migration `1cf8cdceca29`, 24 tables |
+| GitHub | ⚠️ `sahil/staff` has 16 local commits not pushed yet; `main` is 24 commits behind |
+| Deployment | ❌ Not started |
+| Click-through test in a browser | ❌ Not done for any role |
+
+**Rough time to finish everything except email: about 25–35 hours of work** (3–4 days
+for one person, or about 1.5–2 days split across three). Details per item in section 4.
 
 ---
 
-## 2. Staff panel: what works (`/staff`)
+## 2. Git and database status
+
+| Item | State |
+|---|---|
+| Local `sahil/staff` | `b78e96a`. Merges Parth's change password and Adarsh's `integration/staff-catalog`. 306 tests pass on it |
+| `origin/sahil/staff` | `878a785`: **16 commits behind local.** Push before anyone pulls |
+| `origin/main` | `d3b9e26`, auth only. Fast-forwarding it to `sahil/staff` brings everything in with no conflicts |
+| Neon migration | `1cf8cdceca29`, the merge point of the staff (`da1c3bc4ec7c`) and admin (`e2b6c9f0a7d1` → `f4a7b2c9d1e3`) migrations. **Those files exist only in the local branch.** Until it's pushed, teammates' `alembic` commands fail with "Can't locate revision" |
+| Unfinished work | Kept safely in `git stash` ("WIP: link quotations to admin catalog…"), not in the working tree, so the running app stays consistent with Neon |
+
+Merge conflicts fixed while combining the branches:
+- **One customer profile model.** Both sides had defined `customer_profiles`. It now lives in `app/models/profiles.py`, and `customer_profile.py` re-exports it.
+- **`profile_service.py`** keeps both teams' functions.
+- **The test helpers** serve both test suites.
+
+---
+
+## 3. What works, by area
+
+### Admin panel (`/admin`, Adarsh)
+
+| Screen | What the admin can do | Backend |
+|---|---|---|
+| Dashboard | Customers, active subscriptions, cash received, outstanding, catalog counts | ✅ |
+| Products and variants | Create, edit and archive products (type, sales and cost price, description); add variants with an extra price | ✅ `/api/admin/products`, `/variants` |
+| Product types | Create types such as Service or Good | ✅ |
+| Subscription plans | Price, billing frequency, minimum quantity, available from and until, auto-close, allow pause, renew and early close | ✅ `/api/admin/plans` |
+| Taxes | Rate, type, default tax, apply to products or product types | ✅ `/api/admin/taxes` |
+| Discounts | Fixed or %, minimum purchase and quantity, dates, usage limit, whole subscription or specific products, preview | ✅ `/api/admin/discounts` |
+| Reports | Revenue and subscription reports with date ranges | ✅ `/api/admin/reports/*` |
+| Settings | Company details, currency, timezone, invoice prefix (used for new invoice numbers) | ✅ `/api/admin/settings` |
+| Customers and staff | Lists with billing figures, create staff, edit staff, **activate or deactivate** customers and staff | ✅ `/api/admin/customers`, `/staff` |
+| Quotations, subscriptions, invoices, payments | Opens the staff panel; admins are allowed there | ✅ |
+
+### Staff panel (`/staff`, Sahil)
 
 | Screen | What staff can do |
 |---|---|
-| Dashboard | See total customers, active subscriptions, open quotations, money received, money still owed, overdue invoices and recent activity. Filter revenue by date. |
-| Customers | Search by name, company, email or phone. Add a customer with a login. Edit name, company, phone and address. See each customer's subscriptions, invoices and payments with totals. |
-| Quotations & subscriptions | Create a quotation, edit it while it's a draft, send it with a validity period (default 15 days), mark it accepted, activate it with a start date, close it. Download the quotation as a PDF. See when a customer **declined** and why. |
-| Invoices | Generated automatically on each billing date (daily, weekly, monthly or yearly). Confirm, cancel, mark as sent, print or save as PDF. See paid, unpaid and overdue at a glance. |
-| Payments | Record a payment with method, date and transaction ID. Part payments are allowed; the invoice turns **Paid** when fully settled. See all payments with filters. |
-| Account (`/staff/account`) | Change their own password by entering the current one. At least 12 characters with uppercase, lowercase and a special character. Admins can use the same API (`POST /api/staff/account/password`). |
+| Dashboard | Customers, active subscriptions, open quotations, revenue (date filter), outstanding, overdue, recent activity, generate due invoices |
+| Customers | Search by name, company, email or phone; add with a login; edit contact details; full history with totals |
+| Quotations & subscriptions | Create, edit the draft, send with validity, mark accepted, activate, close, download PDF, see declines with reasons |
+| Invoices | Generated automatically per billing period with no duplicates and catch-up; confirm, cancel, mark sent, print or PDF; paid, unpaid and overdue |
+| Payments | Method, date, transaction ID, part payments, outstanding balance |
+| Account | Change password |
 
-**Rules the system enforces:**
-- An invoice is never created twice for the same billing period. Running billing again is safe.
-- Missed billing days are caught up automatically, and billing stops at the expiry date.
-- A payment can't be larger than what's owed or dated in the future.
-- An invoice that has payments can't be cancelled.
-- An expired quotation can't be accepted.
-- Only drafts can be edited.
-
-## 3. Customer portal: what works (`/portal`)
+### Customer portal (`/portal`, Parth's pages with Sahil's backend)
 
 | Screen | What customers can do |
 |---|---|
-| Sign up (`/signup`) | Create their own account (customers only; staff and admin are created by an admin). Password must be over 8 characters with uppercase, lowercase and a special character. |
-| Overview | See active subscriptions, quotations waiting for them, balance due and overdue amount. New customers see a short "how it works". |
-| My subscriptions | View quotations and subscriptions with all lines and totals. **Accept** or **decline** a quotation (with an optional reason staff will see). |
-| My invoices | View all invoices with paid and due amounts. Filter: all, unpaid, overdue, paid, cancelled. Open and print any invoice. |
-| My profile | Add or edit name, company, phone and address. Staff see these details straight away. |
-| Account (`/portal/account`) | Change their password by entering the current one (signup password rule). |
+| Sign up | Customer accounts only; the brief's password rule |
+| Overview | Active subscriptions, quotations waiting for them, balance due, overdue |
+| My subscriptions | View; **accept** or **decline** a quotation (with a reason) |
+| My invoices | Filter by unpaid, overdue, paid or cancelled; print |
+| My profile | Name, company, phone, address (staff see them) |
+| Account | Change password |
 
-**Change password (both portal and staff):** the current password must be right and the
-new one must differ. Wrong attempts count toward the login limits, so after too many the
-form asks the user to wait. On success the user stays signed in on this device and is
-signed out everywhere else.
-
-**Privacy:** customers only ever see their own records. Drafts are hidden from them, and
-another customer's quotation or invoice returns "not found".
+**Access rules:** the backend checks every call. Customers see only their own records, staff
+can't open admin APIs, and customers can't open staff APIs.
 
 ---
 
-## 4. What's left: waiting on the ADMIN section
+## 4. What's left (everything except email)
 
-These can't be finished until the admin developer pushes their tables. Until then staff
-type the details on each quotation line by hand, and everything else works.
+Estimates assume one developer who knows the code. "Owner" is a suggestion.
 
-| Staff / customer feature | What it needs from admin | Today's workaround |
-|---|---|---|
-| Pick a product and variant on a quotation | `products` and `product_variants` tables | Staff type the product name and price |
-| Pick a subscription plan | `subscription_plans` (price, billing frequency) | Staff type the plan name and choose the frequency |
-| Taxes worked out automatically | `taxes` table and how a tax links to a product | Staff type the tax % on each line (default 18%) |
-| Discounts on quotations and invoices | `discounts` table (fixed or %, minimums, dates, usage limit) | Not available |
-| Minimum quantity check | `min_quantity` on the plan | Not checked |
-| Customer pauses, renews or closes early | Plan rules: can pause, can renew, can close early | Staff close subscriptions manually |
-| Auto-close a subscription after expiry | Plan rule: auto-close | Billing stops at expiry, but the status stays Active until staff close it |
-| Quotation templates | Products and plans, so templates can reuse them | Not started; best built once the admin tables exist |
-| Admins changing their password in the browser | An `/admin` panel (doesn't exist yet) | Admins can call `POST /api/staff/account/password` |
+| # | Work | Area | Status | Est. | Owner |
+|---|---|---|---|---|---|
+| 1 | **Use the admin catalog in quotations.** Pick a plan (price, frequency, minimum quantity) and products/variants on the quotation form; tax filled in from the admin's tax rules. Backend about 70% drafted in the stash; needs a migration, tests and the form UI | Staff ↔ Admin | 🟡 Started | 5–7 h | Sahil |
+| 2 | **Apply admin discounts to invoices.** Best eligible discount, applied before tax, use counted when the invoice is confirmed, given back on cancel; shown on invoice screens and PDFs. Backend drafted in the stash | Staff ↔ Admin | 🟡 Started | 2–3 h | Sahil |
+| 3 | **Plan rules: pause, resume, renew, close early, auto-close at expiry.** Buttons for staff and customers, shown only when the plan allows them. Backend drafted in the stash | Staff + Customer ↔ Admin | 🟡 Started | 3–4 h | Sahil (API), Parth (portal buttons) |
+| 4 | **Quotation templates.** Save a plan with lines and validity; start a quotation from it. Backend drafted in the stash | Staff | 🟡 Started | 2–3 h | Sahil |
+| 5 | **Fix the admin page UI** (section 5): stale "SOON" labels on Taxes, Discounts, Reports and Settings; the dashboard's "Not built yet" box; the broken sidebar in dev | Admin | ❌ | 1 h | Adarsh |
+| 6 | **One consistent look.** Today there are 3 component sets (`components/ui`, `components/staff/ui.tsx`, `components/admin`) and 2 layouts: a dark sidebar for admin and a top bar for staff and portal. Pick one design and apply it everywhere | All | ❌ | 4–6 h | Shared |
+| 7 | **Company settings on documents.** Quotation and invoice PDFs hard-code "Brightloop Software"; use the admin's company name, address and phone | Staff + Customer ↔ Admin | ❌ | 1 h | Sahil |
+| 8 | **Demo catalog data.** Neon has 0 products, 0 plans, 0 discounts and 1 default tax, so admin screens look empty. Add a few, plus quotations that use them | All | ❌ | 1 h | Sahil |
+| 9 | **Click-through test in a browser** of every screen for all three roles | All | ❌ | 2–3 h | Shared |
+| 10 | **Run the 2 Postgres-only tests** (row locking, concurrent discount use) against a test database | Backend | ❌ | 0.5 h | Any |
+| 11 | **Deploy** (section 6) | All | ❌ | 3–5 h | Shared |
+| 12 | **Push and merge to `main`**, then everyone pulls `main` | Git | ❌ | 0.5 h | Sahil |
 
-**Agree with the admin developer before they write their migrations:**
-1. The table and column names above, with UUID ids. Quotation and invoice lines will point to them.
-2. Is the discount applied before tax? The brief assumes yes.
-3. Who counts discount uses? We suggest counting when an invoice is confirmed, so it isn't counted twice.
-4. Can one product have more than one tax?
+**Total: about 25–35 hours.** Items 1–4 are the critical path: they connect admin, staff and
+customer, and they need about 12–17 hours.
 
-**When the admin code is pushed:** pull it into `sahil/staff`. If both sides added a
-migration, run `uv run alembic merge heads` once, then `uv run alembic upgrade head`. Then
-we add the product, plan, tax and discount pickers to the quotation form and link the lines
-with a small migration. Prices will still be copied onto each line, so changing a price
-later never changes old quotations or invoices.
+**Smallest set before merging to `main`:** item 12, item 5 and a quick pass of item 9
+(3–4 hours). Everything there works today, without the catalog link.
 
-## 5. What's left: NOT dependent on admin
+---
 
-| Item | Status | Notes |
-|---|---|---|
-| Forgot password by email | ⏸ Paused on purpose | Needs an email service and the auth owner (Adarsh) |
-| Change password while signed in | ✅ Done (Parth) | Customers, staff and admin |
-| Emailing invoices and quotations | Partly done | "Mark as sent" plus print/PDF work; real sending needs an email service |
-| Billing runs every day on its own | Ready, not scheduled | The job exists (`uv run python -m app.jobs.billing`); schedule it as a daily cron job when deploying, for example on Render. Until then use "Generate due invoices" on the dashboard. |
-| Staff deactivating a customer | Decision needed | Today only an admin can do it (`/api/users/{id}/status`) |
-| Limit on sign-ups per person | Not started | Low priority for the demo |
+## 5. Known issues and bugs
 
-### Features that need email
-
-No branch has mail-sending code (no SMTP, provider library or mail settings). One shared
-email service (provider, settings in `.env`, a `send_email` helper) would cover all of these.
-Nobody owns it yet.
-
-| Feature | Required by the brief? | Today | Owner |
+| Issue | Where | Cause | Fix |
 |---|---|---|---|
-| Forgot password reset link | Yes | CLI `reset-password` only | Auth (Adarsh) |
-| Send invoice to customer | Yes ("send invoices") | Marks as sent; customers see it in the portal | Staff (Sahil) |
-| Send quotation to customer | Implied | Status change; customers see it in the portal | Staff (Sahil) |
-| Signup verification, payment receipts, overdue and renewal reminders | No | Not built | Unassigned |
+| Admin dashboard showed "Failed to fetch" under Catalog | `/admin` | The admin's catalog tables weren't in Neon yet, so the backend errored without CORS headers | ✅ Fixed: Neon migrated to `1cf8cdceca29`. All 8 admin APIs now return 200 |
+| Admin sidebar showed as plain text over the page, without its dark style | `/admin` | Most likely the dev server's styles went stale: `.next` was deleted and rebuilt by `npm run build` while `npm run dev` was running. The production build has the right styles | Stop `npm run dev`, delete `frontend/.next`, start `npm run dev` again. Confirm in the browser |
+| Sidebar marks Taxes, Discounts, Reports and Settings as "SOON" though they work | `components/admin/nav.ts` | `ready: false` was never updated | Set `ready: true` (item 5) |
+| Dashboard says "Not built yet: Taxes and discounts, Revenue reports" | `app/admin/page.tsx` | Text left over from before those modules existed | Replace with real figures or remove (item 5) |
+| Quotation and invoice lines don't use the catalog | Staff | Integration not finished | Items 1–2 |
+| Plan rules aren't enforced; subscriptions don't auto-close at expiry | Staff, portal | Integration not finished | Item 3 |
+| Payment figures show no discount line | Invoices | Discounts not applied yet | Item 2 |
+| 2 tests skipped | Backend | Need a real Postgres | Item 10 |
+
+**Security housekeeping before deploying:**
+- The Neon password was shared in chat; rotate it.
+- The demo passwords in `readme.md` are public; change them on any database that isn't for the demo.
+- Set a fresh `JWT_SECRET_KEY` and `ENVIRONMENT=production`.
 
 ---
 
-## 6. Branch and database status
+## 6. Deployment: not started
 
-- **On GitHub:** `sahil/staff` (`65338c8`) has customer management, profiles, decline
-  quotation, invoice filters, demo data and the new tests. `parth/customerManagement` has
-  all of that plus change password.
-- **Neon:** at migration `da1c3bc4ec7c` (customer profiles, decline reason). The code for it
-  is now on GitHub, so `alembic` works for everyone after pulling. Change password needed no
-  migration.
-- **Not on `main` yet:** none of the staff, signup, portal or change-password work. Merging
-  `parth/customerManagement` into `main` brings everything in. Agree the order first.
-- **Shared frontend setting:** `frontend/next.config.ts` sets
-  `experimental.instantInsights.validationLevel = "manual-warning"`. Every staff and portal
-  page loads data in the browser after the login check, so the Next.js instant-navigation
-  check flagged all of them in development. Now only pages that export `instant = true`
-  are checked. Users were never affected.
-
-## 7. Demo data and logins (for the demo)
-
-The data is already in Neon. It shows a business that has been running for about a year.
-
-| Figure (live) | Value |
+| Piece | What's needed |
 |---|---|
-| Customers | 49 |
-| Active subscriptions | 40 |
-| Open quotations | 9 |
-| Money received | ₹41.0 lakh from 111 payments |
-| Still owed | ₹11.8 lakh |
-| Overdue invoices | 19 |
-| Draft invoices to review | 11 |
+| Backend | Host on Render (web service): `uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT`; set `DATABASE_URL`, `JWT_SECRET_KEY`, `ENVIRONMENT=production`, `CORS_ORIGINS` |
+| Migrations | Run `uv run alembic upgrade head` on deploy |
+| Daily billing | Render cron job: `uv run python -m app.jobs.billing` once a day |
+| Frontend | Vercel or Render; set `NEXT_PUBLIC_API_URL` to the backend URL |
+| Login cookie across sites | If frontend and backend are on different domains, set `AUTH_COOKIE_SAMESITE=none` with `AUTH_COOKIE_SECURE=true`; otherwise login won't stick |
+| Config files | None in the repo yet (no `render.yaml` or Dockerfile) |
+
+---
+
+## 7. Testing
+
+| Check | Result |
+|---|---|
+| Backend automated tests (`uv run pytest`) | **306 passed, 2 skipped** on the merged branch: auth, signup, users, catalog, taxes, discounts, reports, settings, people, subscriptions, billing, payments, staff customers, portal, demo data |
+| Live API check (just now, against Neon) | Staff: dashboard, subscriptions, invoices, payments, customers all 200. Admin: products, plans, taxes, discounts, settings, reports, customers, staff all 200 |
+| Frontend | Lint, type check and production build pass on the merged branch |
+| Neon data checks | No duplicate billing periods; every invoice's paid amount matches its payments; no future-dated payments |
+| Browser click-through | **Not done** (item 9) |
+
+---
+
+## 8. Demo data and logins
+
+Staff and customer data is in Neon: 49 customers, 40 active subscriptions, 9 open
+quotations, ₹41.0 lakh received from 111 payments, ₹11.8 lakh owed, 19 overdue invoices.
+**The catalog is empty** (item 8).
 
 | Login | Password | Shows |
 |---|---|---|
+| `admin@brightloop.com` | `Admin@123456` | Admin panel |
 | `staff@demo.brightloop.com` | `Staff@Demo2026` | Staff panel with all the data |
 | `aarav@demo.brightloop.com` | `Customer@Demo2026` | Paid, part-paid and overdue invoices |
 | `priya@demo.brightloop.com` | `Customer@Demo2026` | An open quotation to accept or decline |
@@ -161,64 +183,44 @@ The data is already in Neon. It shows a business that has been running for about
 | `neha@demo.brightloop.com` | `Customer@Demo2026` | A declined quotation with a reason |
 | `kabir@demo.brightloop.com` | `Customer@Demo2026` | A weekly plan with a fresh draft invoice |
 | `ananya@demo.brightloop.com` | `Customer@Demo2026` | A finished (closed) subscription |
-| `new@demo.brightloop.com` | `Customer@Demo2026` | A new customer with no quotations yet (welcome screen); profile filled in as "Naveen Khanna" |
-| `walkin.e2e@demo.brightloop.com` | `Welcome@123` | Created by the live test: one paid invoice and one declined quotation |
+| `new@demo.brightloop.com` | `Customer@Demo2026` | New customer (welcome screen) |
 
-The 49 customers are 48 demo accounts plus the original `customer@brightloop.com`.
-Every demo account ends in `@demo.brightloop.com`. To remove all of it after the hackathon,
-and nothing else: `uv run python -m app.jobs.demo_data --remove`. Don't add more; this set
-is enough.
-
-**Careful when testing change password:** changing a demo account's password in the
-browser changes it in Neon for everyone. Change it back afterwards, or test with a new
-account from `/signup`.
-
-## 8. How it was tested
-
-- **Automated backend tests** (`uv run pytest`): quotation lifecycle, billing (month ends,
-  catch-up, no duplicates, expiry), payments (partial, full, overpayment), staff customer
-  management, the customer portal (accept, decline, filters, profile), who can see what, and
-  that the demo data adds up.
-- **41 live checks** (Sahil) against the running app and Neon: every staff and portal
-  screen loads, and every API call they make returns the right data.
-- **Change password** (Parth): 18 API checks against an in-memory database: wrong current
-  password, weak or unchanged new password, the 12-character staff minimum, wrong role,
-  missing CSRF header, rate limiting, other sessions signed out, old password rejected and
-  new one accepted.
-- **Frontend:** lint and type check pass.
-- **Data check in Neon:** no duplicate billing periods, every invoice's paid amount matches
-  its payments, and no payments are dated in the future.
-- **Not yet done:** a person clicking through the app in a browser.
+Remove all demo data (and nothing else) after the hackathon:
+`uv run python -m app.jobs.demo_data --remove`. Changing a demo password in the browser
+changes it in Neon for everyone.
 
 ---
 
-## 9. Activity log
+## 9. Left out on purpose: email
 
-Newest first. Every action by Parth and every teammate commit on any branch.
+These are planned for later and aren't counted in the estimates above.
+
+| Feature | Today |
+|---|---|
+| Forgot password by email | Backend exists on the admin branch (`/api/auth/password-reset/*`, logs the email to the console in development); no page in the frontend |
+| Send invoice or quotation by email | "Mark as sent" plus PDF; customers also see them in the portal |
+| Receipts, overdue and renewal reminders | Not built |
+
+---
+
+## 10. Activity log
+
+Newest first.
 
 | Time (IST) | Who | Branch | What |
 |---|---|---|---|
-| 13:45 | Parth | `parth/customerManagement` | Merged `sahil/staff` (`2de6135`, `65338c8`) into my branch with the change-password commit `43ef40a`; resolved 5 conflicts (route registration, sidebars, API client, this report); pushed |
-| 13:37 | Sahil | `sahil/staff` | `65338c8` readme: updated staff and customer demo passwords |
-| 13:37 | Sahil | `sahil/staff` | `2de6135` customer management, customer profiles, quotation decline, portal invoice filters, demo data, migration `da1c3bc4ec7c`, rewrote this report |
-| 13:35 | Parth | `parth/customerManagement` | Fixed the instant-navigation dev warning on every page with one setting in `next.config.ts` |
-| 13:29 | Parth | `parth/customerManagement` | Fixed the instant-navigation warning on `/staff/account` |
-| 13:27 | Parth | `parth/customerManagement` | Added change password for staff and admin: `POST /api/staff/account/password` and `/staff/account` |
-| 13:14 | Parth | `parth/customerManagement` | Added change password for customers: `POST /api/portal/account/password` and `/portal/account` |
-| 13:04 | Parth | all | Audited email usage: no mail-sending code on any branch (see section 5) |
-| 13:02 | Parth | all | Fetched all branches: no new teammate commits |
-| 12:33 | Parth | `parth/customerManagement` | Checked that commit `1b9bdb4` changes frontend files only |
-| 12:31 | Parth | `parth/customerManagement` | `1b9bdb4` committed and pushed the customer portal |
-| 12:27 | Parth | `parth/customerManagement` | Adapted the portal to signup: welcome screen for new customers |
-| 12:20 | Parth | `parth/customerManagement` | Started this report at the repo root |
-| 12:06 | Sahil | `sahil/staff` | `e4e377c` login: show Sign up as a button |
-| 12:04 | Sahil | `sahil/staff` | `183d4a3` merged `sahil/customer-signup` |
-| 12:03 | Sahil | `sahil/customer-signup` | `5fbd96b` customer-only self signup |
-| 12:00 | Parth | `parth/customerManagement` | Fixed the instant-navigation warning on the portal pages |
-| 11:50 | Parth | `parth/customerManagement` | Built the portal pages: overview, subscriptions, accept quotation, invoices |
-| 11:40 | Sahil | `sahil/staff` | `6c1232d` staff panel, billing, and the portal endpoints in `billing.py` |
-| 10:53 | Adarsh | `main` | `d3b9e26` replaced JWT with database sessions, added `reset-password` CLI |
-| 10:33 | Adarsh | `main` | `8c28960` documented demo accounts and Alembic seeding |
-| 10:30 | Adarsh | `adarsh` | `3db69a9` fixed auth |
-| 10:11 | Adarsh | `adarsh` | `38e1b33` auth done |
-| 09:38 | Sahil | — | `857a3c7` initial backend and frontend setup |
+| 15:00 | Sahil | `sahil/staff` | Audit and this report; moved unfinished catalog-link work to `git stash` |
+| 14:35 | Sahil | Neon | Applied admin migrations and merge point `1cf8cdceca29` (additive: catalog, taxes, discounts, settings, staff profiles, reset tokens) |
+| 14:30 | Sahil | `sahil/staff` | `b78e96a` merged `integration/staff-catalog`; resolved 3 conflicts; 306 tests pass |
+| 14:05 | Sahil | `sahil/staff` | `5995a1e` merged `parth/customerManagement` (change password) |
+| 13:55 | Adarsh | `integration/staff-catalog` | `9304fbc` taxes, discounts, settings, reports, profiles, password reset, admin screens |
+| 13:50 | Sahil | `sahil/staff` | `878a785` report: customer deactivation is admin-only |
+| 13:45 | Parth | `parth/customerManagement` | Merged `sahil/staff` with change password `43ef40a` |
+| 13:37 | Sahil | `sahil/staff` | `2de6135` customer management, profiles, decline, invoice filters, demo data |
+| 13:27 | Parth | `parth/customerManagement` | Change password for staff and admin |
+| 13:14 | Parth | `parth/customerManagement` | Change password for customers |
+| 12:31 | Parth | `parth/customerManagement` | `1b9bdb4` customer portal pages |
+| 12:03 | Sahil | `sahil/customer-signup` | `5fbd96b` customer-only signup |
+| 11:40 | Sahil | `sahil/staff` | `6c1232d` staff panel and billing |
+| 10:53 | Adarsh | `main` | `d3b9e26` database sessions, reset-password CLI |
+| 09:38 | Sahil | — | `857a3c7` initial setup |
