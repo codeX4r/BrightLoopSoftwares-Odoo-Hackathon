@@ -42,6 +42,18 @@ export async function login(email: string, password: string, selectedRole: Role)
   return res.role;
 }
 
+/**
+ * Registers a new customer and signs them in (the backend sets the session cookie).
+ * Signup always creates a CUSTOMER; admin and staff accounts are created by an admin.
+ */
+export async function signupCustomer(email: string, password: string): Promise<Role> {
+  const res = await apiRequest<LoginResponse>("/api/auth/signup", {
+    method: "POST",
+    body: { email, password },
+  });
+  return res.role;
+}
+
 export function getCurrentUser(): Promise<CurrentUser> {
   return apiRequest<CurrentUser>("/api/auth/me");
 }

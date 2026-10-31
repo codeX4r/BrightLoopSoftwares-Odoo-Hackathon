@@ -7,9 +7,10 @@ from app.api.deps import CurrentUser, bearer_scheme, get_auth_context
 from app.core.config import get_settings
 from app.core.rate_limit import LoginRateLimiter, get_login_rate_limiter
 from app.db.session import DbSession
-from app.schemas.auth import LoginRequest, LoginResponse
+from app.models.user import User, UserRole
+from app.schemas.auth import LoginRequest, LoginResponse, SignupRequest
 from app.schemas.user import UserRead
-from app.services import auth_service
+from app.services import auth_service, user_service
 from app.services.user_service import normalize_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -92,7 +93,37 @@ def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
     limiter.record_success(email)
+    return _start_session(db, user, response)
 
+
+@router.post(
+    "/signup",
+    response_model=LoginResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        409: {"description": "Email already registered"},
+        422: {"description": "Invalid email or weak password"},
+    },
+)
+def signup(payload: SignupRequest, response: Response, db: DbSession) -> LoginResponse:
+    """Registers a new CUSTOMER and signs them in.
+
+    The role is always CUSTOMER; the request has no role field. Admin and staff accounts
+    are created only by an admin (POST /api/users/staff, or the CLI).
+    """
+    try:
+        user = user_service.create_user(
+            db, email=payload.email, password=payload.password, role=UserRole.CUSTOMER
+        )
+    except user_service.EmailAlreadyExistsError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account with this email already exists. Sign in instead.",
+        ) from None
+    return _start_session(db, user, response)
+
+
+def _start_session(db: DbSession, user: User, response: Response) -> LoginResponse:
     session = auth_service.create_session(db, user)
     expires_in = get_settings().access_token_expire_minutes * 60
     _set_auth_cookie(response, session.token, expires_in)
