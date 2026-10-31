@@ -5,12 +5,13 @@ else return 404, the same as missing ones.
 """
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 
 from app.api.permissions import CustomerOnly
 from app.db.session import DbSession
+from app.models.invoice import InvoiceStatus
 from app.schemas.common import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, Page
 from app.schemas.invoice import (
     InvoiceRead,
@@ -19,6 +20,7 @@ from app.schemas.invoice import (
     invoice_summary,
 )
 from app.schemas.subscription import (
+    RejectQuotationRequest,
     SubscriptionRead,
     SubscriptionSummary,
     subscription_read,
@@ -78,18 +80,46 @@ def accept_quotation(
     )
 
 
+@router.post("/subscriptions/{subscription_id}/reject", response_model=SubscriptionRead)
+def reject_quotation(
+    subscription_id: uuid.UUID,
+    payload: RejectQuotationRequest,
+    customer: CustomerOnly,
+    db: DbSession,
+) -> SubscriptionRead:
+    """The customer declines their quotation: QUOTATION -> CLOSED (marked rejected).
+
+    An optional reason (up to 500 characters) is shown to staff.
+    """
+    return subscription_read(
+        subscription_service.reject(
+            db, subscription_id, customer_id=customer.id, reason=payload.reason
+        )
+    )
+
+
+# What a customer can filter by. Drafts are never shown to customers.
+PortalInvoiceStatus = Literal["CONFIRMED", "PAID", "CANCELLED"]
+
+
 @router.get("/invoices", response_model=Page[InvoiceSummary])
 def my_invoices(
     customer: CustomerOnly,
     db: DbSession,
+    status_filter: Annotated[PortalInvoiceStatus | None, Query(alias="status")] = None,
+    overdue: bool | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE,
 ) -> Page[InvoiceSummary]:
-    """The customer's invoices with paid and outstanding amounts. Drafts are not shown."""
+    """The customer's invoices with paid and outstanding amounts. Drafts are not shown.
+
+    Filters: `status=CONFIRMED` (unpaid), `PAID` or `CANCELLED`; `overdue=true` for unpaid
+    invoices past their due date.
+    """
     result = invoice_service.list_invoices(
         db,
-        status=None,
-        overdue=None,
+        status=InvoiceStatus(status_filter) if status_filter else None,
+        overdue=overdue,
         customer_id=customer.id,
         subscription_id=None,
         search=None,

@@ -1,8 +1,9 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.models.subscription import (
     BillingFrequency,
@@ -16,10 +17,15 @@ from app.schemas.common import (
     OptionalNotes,
     ShortText,
     TaxRate,
+    customer_summary,
 )
 from app.services.money import ZERO, line_amounts
 
 MAX_LINES = 100
+
+OptionalReason = Annotated[
+    str | None, StringConstraints(strip_whitespace=True, max_length=500)
+]
 
 
 class SubscriptionLineIn(BaseModel):
@@ -65,6 +71,12 @@ class SendQuotationRequest(BaseModel):
     valid_days: int = Field(default=15, ge=1, le=365)
 
 
+class RejectQuotationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: OptionalReason = None
+
+
 class ActivateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -95,6 +107,8 @@ class SubscriptionSummary(BaseModel):
     expiry_date: date | None
     next_billing_date: date | None
     quotation_valid_until: date | None
+    # Set when the customer declined the quotation (status is then CLOSED).
+    rejected_at: datetime | None
     subtotal: Decimal
     tax_total: Decimal
     total: Decimal
@@ -108,6 +122,7 @@ class SubscriptionRead(SubscriptionSummary):
     confirmed_at: datetime | None
     activated_at: datetime | None
     closed_at: datetime | None
+    rejection_reason: str | None
     updated_at: datetime
     lines: list[SubscriptionLineRead]
 
@@ -133,13 +148,14 @@ def _summary_fields(sub: Subscription, lines: list[SubscriptionLineRead]) -> dic
         "id": sub.id,
         "number": sub.number,
         "status": sub.status,
-        "customer": CustomerSummary.model_validate(sub.customer),
+        "customer": customer_summary(sub.customer),
         "plan_name": sub.plan_name,
         "billing_frequency": sub.billing_frequency,
         "start_date": sub.start_date,
         "expiry_date": sub.expiry_date,
         "next_billing_date": sub.next_billing_date,
         "quotation_valid_until": sub.quotation_valid_until,
+        "rejected_at": sub.rejected_at,
         "subtotal": subtotal,
         "tax_total": tax_total,
         "total": subtotal + tax_total,
@@ -162,6 +178,7 @@ def subscription_read(sub: Subscription) -> SubscriptionRead:
         confirmed_at=sub.confirmed_at,
         activated_at=sub.activated_at,
         closed_at=sub.closed_at,
+        rejection_reason=sub.rejection_reason,
         updated_at=sub.updated_at,
         lines=lines,
     )

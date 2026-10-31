@@ -36,8 +36,45 @@ export function acceptQuotation(id: string) {
   });
 }
 
-export function listMyInvoices(page = 1, pageSize = 20) {
-  return apiRequest<Page<InvoiceSummary>>(`/api/portal/invoices?${pageQuery(page, pageSize)}`);
+/** Declines a quotation: QUOTATION -> CLOSED, with an optional reason shown to staff. */
+export function rejectQuotation(id: string, reason: string | null) {
+  return apiRequest<Subscription>(`/api/portal/subscriptions/${encodeURIComponent(id)}/reject`, {
+    method: "POST",
+    body: { reason },
+  });
+}
+
+/** Invoice filter for customers. "UNPAID" = confirmed with a balance; "OVERDUE" = past due. */
+export type MyInvoiceFilter = "" | "UNPAID" | "OVERDUE" | "PAID" | "CANCELLED";
+
+export function listMyInvoices(page = 1, pageSize = 20, filter: MyInvoiceFilter = "") {
+  const params = new URLSearchParams(pageQuery(page, pageSize));
+  if (filter === "UNPAID") params.set("status", "CONFIRMED");
+  else if (filter === "OVERDUE") params.set("overdue", "true");
+  else if (filter) params.set("status", filter);
+  return apiRequest<Page<InvoiceSummary>>(`/api/portal/invoices?${params}`);
+}
+
+export type MyProfile = {
+  email: string;
+  full_name: string | null;
+  company_name: string | null;
+  phone: string | null;
+  address: string | null;
+  updated_at: string | null;
+};
+
+export function getMyProfile() {
+  return apiRequest<MyProfile>("/api/portal/profile");
+}
+
+export function updateMyProfile(body: {
+  full_name: string | null;
+  company_name: string | null;
+  phone: string | null;
+  address: string | null;
+}) {
+  return apiRequest<MyProfile>("/api/portal/profile", { method: "PATCH", body });
 }
 
 export function getMyInvoice(id: string) {

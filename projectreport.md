@@ -1,76 +1,154 @@
-# Project report: customer portal
+# Project report: Staff panel and Customer portal
 
-Owner: Parth (customer portal). Branch: `parth/customerManagement`, at `e4e377c`
-(includes `main`, `sahil/staff` and `sahil/customer-signup`).
-Last updated: 2026-10-31 12:31 IST.
+Last updated: 2026-10-31, afternoon (IST)
+Owners: Sahil (staff panel and its backend), Parth (customer portal pages)
+Working branch: `sahil/staff` (includes `main`, customer signup and Parth's portal)
 
-Remote branches (all included in `parth/customerManagement` as of 12:31):
-`main` `d3b9e26`, `adarsh` `3db69a9`, `sahil/staff` `e4e377c`,
-`sahil/customer-signup` `5fbd96b`.
+**In one line:** the full customer journey works end to end. A customer signs up, staff send
+a quotation, the customer accepts or declines it, staff activate it, invoices are generated
+automatically, and payments are recorded. What's left mostly waits on the **admin** section
+(products, plans, taxes, discounts).
 
-## Activity log
+---
 
-Newest first. Covers my work and teammates' commits on any branch.
+## 1. Status at a glance
 
-| Time (IST) | Who | Branch | What |
-|---|---|---|---|
-| 12:31 | Parth | `parth/customerManagement` | Committed and pushed the customer portal to `origin/parth/customerManagement` (eslint, tsc, 59 backend tests pass) |
-| 12:29 | Parth | all | Report check: synced Next and Dependencies with the signup changes; fetched all branches, no new teammate commits |
-| 12:27 | Parth | `parth/customerManagement` | Adapted portal to Sahil's signup: welcome state for new customers, shared portal user context; signup-to-portal flow verified |
-| 12:24 | Parth | all | Fetched all branches: no new teammate commits; fast-forwarded local `sahil/staff` to `e4e377c` |
-| 12:20 | Parth | `parth/customerManagement` | Moved this report to the repo root; set up auto-reporting |
-| 12:10 | Parth | `parth/customerManagement` | Fast-forwarded to `e4e377c` to pick up customer signup; 59 backend tests pass |
-| 12:06 | Sahil | `sahil/staff` | `e4e377c` login: show Sign up as a button |
-| 12:04 | Sahil | `sahil/staff` | `183d4a3` merged `sahil/customer-signup` |
-| 12:03 | Sahil | `sahil/customer-signup` | `5fbd96b` customer-only self signup (`POST /api/auth/signup`, `/signup` page, password rule) |
-| 12:00 | Parth | `parth/customerManagement` | Fixed the Next.js instant-navigation warning on all /portal pages |
-| 11:50 | Parth | `parth/customerManagement` | Built /portal pages: overview, subscriptions, accept quotation, invoices (uncommitted) |
-| 11:40 | Sahil | `sahil/staff` | `6c1232d` staff panel, billing, and the 5 `/api/portal/*` endpoints in `billing.py` |
-| 10:53 | Adarsh | `main` | `d3b9e26` replaced JWT with database sessions, added `reset-password` CLI |
-| 10:33 | Adarsh | `main` | `8c28960` documented demo accounts and Alembic seeding |
-| 10:30 | Adarsh | `adarsh` | `3db69a9` fixed auth |
-| 10:11 | Adarsh | `adarsh` | `38e1b33` auth done |
-| 09:38 | Sahil | — | `857a3c7` initial backend and frontend setup |
+| Area | Status |
+|---|---|
+| Staff panel | ✅ Working. Every screen is built and tested |
+| Customer portal | ✅ Working. Every screen is built and tested |
+| Tests | ✅ 78 backend tests pass, 41 live checks pass, frontend builds with no errors |
+| Demo data | ✅ Loaded in Neon (49 customers, most with a year of history) |
+| Pushed to GitHub | ⚠️ **Not yet.** Today's work is on Sahil's machine only (see section 6) |
+| Waiting on admin | ⛔ Products, plans, taxes, discounts (see section 4) |
 
-## Done (customer portal)
+---
 
-| Item | Files | Verified |
+## 2. Staff panel: what works (`/staff`)
+
+| Screen | What staff can do |
+|---|---|
+| Dashboard | See total customers, active subscriptions, open quotations, money received, money still owed, overdue invoices and recent activity. Filter revenue by date. |
+| Customers | Search by name, company, email or phone. Add a customer with a login. Edit name, company, phone and address. See each customer's subscriptions, invoices and payments with totals. |
+| Quotations & subscriptions | Create a quotation, edit it while it's a draft, send it with a validity period (default 15 days), mark it accepted, activate it with a start date, close it. Download the quotation as a PDF. See when a customer **declined** and why. |
+| Invoices | Generated automatically on each billing date (daily, weekly, monthly or yearly). Confirm, cancel, mark as sent, print or save as PDF. See paid, unpaid and overdue at a glance. |
+| Payments | Record a payment with method, date and transaction ID. Part payments are allowed; the invoice turns **Paid** when fully settled. See all payments with filters. |
+
+**Rules the system enforces:**
+- An invoice is never created twice for the same billing period. Running billing again is safe.
+- Missed billing days are caught up automatically, and billing stops at the expiry date.
+- A payment can't be larger than what's owed or dated in the future.
+- An invoice that has payments can't be cancelled.
+- An expired quotation can't be accepted.
+- Only drafts can be edited.
+
+## 3. Customer portal: what works (`/portal`)
+
+| Screen | What customers can do |
+|---|---|
+| Sign up (`/signup`) | Create their own account (customers only; staff and admin are created by an admin). Password must be over 8 characters with uppercase, lowercase and a special character. |
+| Overview | See active subscriptions, quotations waiting for them, balance due and overdue amount. New customers see a short "how it works". |
+| My subscriptions | View quotations and subscriptions with all lines and totals. **Accept** or **decline** a quotation (with an optional reason staff will see). |
+| My invoices | View all invoices with paid and due amounts. Filter: all, unpaid, overdue, paid, cancelled. Open and print any invoice. |
+| My profile | Add or edit name, company, phone and address. Staff see these details straight away. |
+
+**Privacy:** customers only ever see their own records. Drafts are hidden from them, and
+another customer's quotation or invoice returns "not found".
+
+---
+
+## 4. What's left: waiting on the ADMIN section
+
+These can't be finished until the admin developer pushes their tables. Until then staff
+type the details on each quotation line by hand, and everything else works.
+
+| Staff / customer feature | What it needs from admin | Today's workaround |
 |---|---|---|
-| Portal layout with customer-only guard and sidebar | `frontend/src/app/portal/layout.tsx`, `frontend/src/components/portal/portal-shell.tsx`, `portal-nav.tsx` | Routes return 200 |
-| Overview: active subscriptions, quotations to review, balance due, overdue | `frontend/src/app/portal/portal-overview.tsx` | tsc, eslint |
-| My subscriptions list and detail | `frontend/src/app/portal/subscriptions/…` | API flow script |
-| Accept quotation (asks to confirm first, hidden once expired) | `subscriptions/[id]/subscription-detail.tsx` | Accept works; re-accept 409; other customer 404 |
-| My invoices list and printable detail with payments | `frontend/src/app/portal/invoices/…` | Partial payment shows paid and due |
-| API client for the 5 portal endpoints | `frontend/src/lib/portal-api.ts` | tsc |
-| Next.js instant-navigation warning fixed | each portal `page.tsx` exports `instant = false` | Dev log clean |
-| Welcome state for new (self-registered) customers: 3-step "how it works" and their account email to quote | `frontend/src/app/portal/portal-overview.tsx` | tsc, eslint |
-| Signed-in customer shared with portal pages (`usePortalUser`) | `frontend/src/components/portal/portal-shell.tsx` | tsc |
-| Signup works with the portal: signup → empty portal → staff finds customer → quotation → accept | (verification only) | 13 API checks pass |
+| Pick a product and variant on a quotation | `products` and `product_variants` tables | Staff type the product name and price |
+| Pick a subscription plan | `subscription_plans` (price, billing frequency) | Staff type the plan name and choose the frequency |
+| Taxes worked out automatically | `taxes` table and how a tax links to a product | Staff type the tax % on each line (default 18%) |
+| Discounts on quotations and invoices | `discounts` table (fixed or %, minimums, dates, usage limit) | Not available |
+| Minimum quantity check | `min_quantity` on the plan | Not checked |
+| Customer pauses, renews or closes early | Plan rules: can pause, can renew, can close early | Staff close subscriptions manually |
+| Auto-close a subscription after expiry | Plan rule: auto-close | Billing stops at expiry, but the status stays Active until staff close it |
+| Quotation templates | Products and plans, so templates can reuse them | Not started; best built once the admin tables exist |
 
-Pushed to `origin/parth/customerManagement`.
+**Agree with the admin developer before they write their migrations:**
+1. The table and column names above, with UUID ids. Quotation and invoice lines will point to them.
+2. Is the discount applied before tax? The brief assumes yes.
+3. Who counts discount uses? We suggest counting when an invoice is confirmed, so it isn't counted twice.
+4. Can one product have more than one tax?
 
-## Next
+**When the admin code is pushed:** pull it into `sahil/staff`. If both sides added a
+migration, run `uv run alembic merge heads` once, then `uv run alembic upgrade head`. Then
+we add the product, plan, tax and discount pickers to the quotation form and link the lines
+with a small migration. Prices will still be copied onto each line, so changing a price
+later never changes old quotations or invoices.
 
-1. Open a pull request from `parth/customerManagement` into `main` when the team is
-   ready to merge.
-2. Test the pages in a browser with real data: sign up at `/signup` (or use
-   `customer@brightloop.com`), staff sends a quotation, then the customer accepts it and
-   views the invoice.
-3. Customer profile (name, company, phone, address): model, Alembic migration,
-   `GET/PATCH /api/portal/profile`, `/portal/profile` page. Confirm ownership first.
-4. Change password while signed in (`/portal/account`), using the same password rule as
-   signup.
-5. Invoice filters on `/portal/invoices` (unpaid, overdue, paid).
+## 5. What's left: NOT dependent on admin
 
-## Dependencies on other modules
-
-| Portal feature | Status | Waiting on |
+| Item | Status | Notes |
 |---|---|---|
-| Customer self-registration | Done | — (Sahil, `5fbd96b`) |
-| Forgot password with an email link | Missing | Auth (Adarsh) plus an email provider |
-| Customer name, company, address | Missing | Customer profile; owner unconfirmed. Signup only collects email and password, so staff see customers by email until this exists |
-| Pause, renew or close early | Missing | Admin plan rules plus new endpoints |
-| Reject a quotation | Missing | Staff/billing, `billing.py` (Sahil) |
-| Invoice status filter for customers | Missing | `billing.py` (Sahil) |
-| Real product, variant and plan names, taxes, discounts | Free-text lines | Admin module (no owner yet) |
-| Emailing invoices | Not available | Email provider |
+| Forgot password by email | ⏸ Paused on purpose | Needs an email service and the auth owner (Adarsh) |
+| Change password while signed in | Not started | Auth area |
+| Emailing invoices and quotations | Partly done | "Mark as sent" plus print/PDF work; real sending needs an email service |
+| Billing runs every day on its own | Ready, not scheduled | The job exists (`uv run python -m app.jobs.billing`); schedule it as a daily cron job when deploying, for example on Render. Until then use "Generate due invoices" on the dashboard. |
+| Staff deactivating a customer | Decision needed | Today only an admin can do it (`/api/users/{id}/status`) |
+| Limit on sign-ups per person | Not started | Low priority for the demo |
+
+---
+
+## 6. Branch and database status ⚠️
+
+- **Not on GitHub yet:** customer management, profiles, decline quotation, invoice filters,
+  customer names on staff screens, demo data and the new tests (66 files). They're on
+  Sahil's machine only.
+- **Already in Neon:** migration `da1c3bc4ec7c` (customer profiles, decline reason). Until
+  the code above is pushed, a teammate running any `alembic` command will see
+  "Can't locate revision". **Push soon.**
+- **Not on `main` yet:** none of the staff, signup or portal work. `sahil/staff` contains all
+  of it, so a single merge into `main` brings everything in.
+
+## 7. Demo data and logins (for the demo)
+
+The data is already in Neon. It shows a business that has been running for about a year.
+
+| Figure (live) | Value |
+|---|---|
+| Customers | 49 |
+| Active subscriptions | 40 |
+| Open quotations | 9 |
+| Money received | ₹41.0 lakh from 111 payments |
+| Still owed | ₹11.8 lakh |
+| Overdue invoices | 19 |
+| Draft invoices to review | 11 |
+
+| Login | Password | Shows |
+|---|---|---|
+| `staff@demo.brightloop.com` | `Staff@Demo2026` | Staff panel with all the data |
+| `aarav@demo.brightloop.com` | `Customer@Demo2026` | Paid, part-paid and overdue invoices |
+| `priya@demo.brightloop.com` | `Customer@Demo2026` | An open quotation to accept or decline |
+| `rohan@demo.brightloop.com` | `Customer@Demo2026` | Accepted, waiting for staff to activate |
+| `neha@demo.brightloop.com` | `Customer@Demo2026` | A declined quotation with a reason |
+| `kabir@demo.brightloop.com` | `Customer@Demo2026` | A weekly plan with a fresh draft invoice |
+| `ananya@demo.brightloop.com` | `Customer@Demo2026` | A finished (closed) subscription |
+| `new@demo.brightloop.com` | `Customer@Demo2026` | A new customer with no quotations yet (welcome screen); profile filled in as "Naveen Khanna" |
+| `walkin.e2e@demo.brightloop.com` | `Welcome@123` | Created by the live test: one paid invoice and one declined quotation |
+
+The 49 customers are 48 demo accounts plus the original `customer@brightloop.com`.
+Every demo account ends in `@demo.brightloop.com`. To remove all of it after the hackathon,
+and nothing else: `uv run python -m app.jobs.demo_data --remove`. Don't add more; this set
+is enough.
+
+## 8. How it was tested
+
+- **78 automated backend tests** (`uv run pytest`): quotation lifecycle, billing (month ends,
+  catch-up, no duplicates, expiry), payments (partial, full, overpayment), staff customer
+  management, the customer portal (accept, decline, filters, profile), who can see what, and
+  that the demo data adds up.
+- **41 live checks** against the running app and Neon: every staff and portal screen loads,
+  and every API call they make returns the right data.
+- **Frontend:** lint, type check and production build all pass.
+- **Data check in Neon:** no duplicate billing periods, every invoice's paid amount matches
+  its payments, and no payments are dated in the future.
+- **Not yet done:** a person clicking through the app in a browser.

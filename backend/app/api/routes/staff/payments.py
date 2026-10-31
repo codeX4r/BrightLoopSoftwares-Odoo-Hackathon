@@ -19,6 +19,7 @@ def list_payments(
     _actor: StaffOrAdmin,
     db: DbSession,
     invoice_id: uuid.UUID | None = None,
+    customer_id: uuid.UUID | None = None,
     method: PaymentMethod | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
@@ -28,6 +29,7 @@ def list_payments(
     result = payment_service.list_payments(
         db,
         invoice_id=invoice_id,
+        customer_id=customer_id,
         method=method,
         date_from=date_from,
         date_to=date_to,

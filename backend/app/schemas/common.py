@@ -2,7 +2,9 @@ import uuid
 from decimal import Decimal
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
+from pydantic import BaseModel, EmailStr, Field, StringConstraints
+
+from app.models.user import User
 
 # Money in rupees with paise, serialized as a string ("1180.00") so no precision is lost.
 Money = Annotated[Decimal, Field(ge=0, max_digits=12, decimal_places=2)]
@@ -28,13 +30,23 @@ class Page[T](BaseModel):
 
 
 class CustomerSummary(BaseModel):
-    """The customer as staff screens show it.
+    """The customer as quotation, invoice and payment screens show it.
 
-    Only the email for now: names and companies come from the customer-profile work
-    owned by another developer.
+    Name and company come from the customer's profile and are null until they've
+    filled it in, so screens should fall back to the email.
     """
-
-    model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     email: EmailStr
+    full_name: str | None = None
+    company_name: str | None = None
+
+
+def customer_summary(user: User) -> CustomerSummary:
+    profile = user.profile
+    return CustomerSummary(
+        id=user.id,
+        email=user.email,
+        full_name=profile.full_name if profile else None,
+        company_name=profile.company_name if profile else None,
+    )

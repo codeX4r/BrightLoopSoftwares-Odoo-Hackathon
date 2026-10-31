@@ -12,6 +12,7 @@ from datetime import date
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.models.customer_profile import CustomerProfile
 from app.models.invoice import Invoice, InvoiceStatus
 from app.models.payment import Payment
 from app.models.user import User
@@ -38,7 +39,10 @@ def overdue_condition(today: date):
 
 
 def _with_relations(*, include_detail: bool):
-    options = [selectinload(Invoice.customer), selectinload(Invoice.subscription)]
+    options = [
+        selectinload(Invoice.customer).selectinload(User.profile),
+        selectinload(Invoice.subscription),
+    ]
     if include_detail:
         options += [
             selectinload(Invoice.lines),
@@ -75,8 +79,17 @@ def list_invoices(
         query = query.where(Invoice.subscription_id == subscription_id)
     if search:
         pattern = f"%{search.strip()}%"
-        query = query.join(User, User.id == Invoice.customer_id).where(
-            or_(Invoice.number.ilike(pattern), User.email.ilike(pattern))
+        query = (
+            query.join(User, User.id == Invoice.customer_id)
+            .outerjoin(CustomerProfile, CustomerProfile.user_id == User.id)
+            .where(
+                or_(
+                    Invoice.number.ilike(pattern),
+                    User.email.ilike(pattern),
+                    CustomerProfile.full_name.ilike(pattern),
+                    CustomerProfile.company_name.ilike(pattern),
+                )
+            )
         )
 
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0

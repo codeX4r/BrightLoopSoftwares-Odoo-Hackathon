@@ -10,7 +10,19 @@ export type Decimal = string;
 
 export type Page<T> = { items: T[]; total: number; page: number; page_size: number };
 
-export type CustomerSummary = { id: string; email: string };
+/** Name and company come from the customer's profile and are null until it's filled in. */
+export type CustomerSummary = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  company_name: string | null;
+};
+
+/** "Aarav Sharma · ABC Technologies", falling back to the email. */
+export function customerName(customer: CustomerSummary): string {
+  const parts = [customer.full_name, customer.company_name].filter(Boolean);
+  return parts.length ? parts.join(" · ") : customer.email;
+}
 
 export type SubscriptionLine = {
   id: string;
@@ -34,6 +46,8 @@ export type SubscriptionSummary = {
   expiry_date: string | null;
   next_billing_date: string | null;
   quotation_valid_until: string | null;
+  /** Set when the customer declined the quotation (status is then CLOSED). */
+  rejected_at: string | null;
   subtotal: Decimal;
   tax_total: Decimal;
   total: Decimal;
@@ -41,6 +55,7 @@ export type SubscriptionSummary = {
 };
 
 export type Subscription = SubscriptionSummary & {
+  rejection_reason: string | null;
   payment_terms_days: number;
   notes: string | null;
   quotation_sent_at: string | null;
@@ -110,7 +125,37 @@ export type Invoice = InvoiceSummary & {
 export type Payment = InvoicePayment & {
   invoice_id: string;
   invoice_number: string;
+  customer: CustomerSummary;
   customer_email: string;
+};
+
+export type StaffCustomerRow = {
+  id: string;
+  email: string;
+  is_active: boolean;
+  full_name: string | null;
+  company_name: string | null;
+  phone: string | null;
+  created_at: string;
+  active_subscriptions: number;
+  outstanding_amount: Decimal;
+};
+
+export type StaffCustomer = StaffCustomerRow & {
+  address: string | null;
+  profile_updated_at: string | null;
+  subscriptions_total: number;
+  open_quotations: number;
+  invoiced_total: Decimal;
+  paid_total: Decimal;
+  overdue_amount: Decimal;
+};
+
+export type CustomerProfileInput = {
+  full_name?: string | null;
+  company_name?: string | null;
+  phone?: string | null;
+  address?: string | null;
 };
 
 export type ActivityItem = {
@@ -119,6 +164,7 @@ export type ActivityItem = {
     | "subscription_created"
     | "quotation_sent"
     | "quotation_accepted"
+    | "quotation_rejected"
     | "subscription_activated"
     | "subscription_closed"
     | "invoice_generated"
@@ -233,6 +279,7 @@ export function listInvoices(params: {
   overdue?: boolean;
   search?: string;
   subscription_id?: string;
+  customer_id?: string;
   page?: number;
 }) {
   return apiRequest<Page<InvoiceSummary>>(withQuery("/api/staff/invoices", params));
@@ -262,6 +309,7 @@ export function listPayments(params: {
   date_from?: string;
   date_to?: string;
   invoice_id?: string;
+  customer_id?: string;
   page?: number;
 }) {
   return apiRequest<Page<Payment>>(withQuery("/api/staff/payments", params));
@@ -276,6 +324,27 @@ export function recordPayment(body: {
   notes: string | null;
 }) {
   return apiRequest<Payment>("/api/staff/payments", { method: "POST", body });
+}
+
+// --- Customers ---
+
+export function listCustomers(params: { search?: string; page?: number }) {
+  return apiRequest<Page<StaffCustomerRow>>(withQuery("/api/staff/customers", params));
+}
+
+export function getCustomer(id: string) {
+  return apiRequest<StaffCustomer>(`/api/staff/customers/${encodeURIComponent(id)}`);
+}
+
+export function createCustomer(body: CustomerProfileInput & { email: string; password: string }) {
+  return apiRequest<StaffCustomer>("/api/staff/customers", { method: "POST", body });
+}
+
+export function updateCustomer(id: string, body: CustomerProfileInput) {
+  return apiRequest<StaffCustomer>(`/api/staff/customers/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body,
+  });
 }
 
 // --- Dashboard ---

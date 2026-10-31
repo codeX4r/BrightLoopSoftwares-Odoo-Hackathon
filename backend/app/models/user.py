@@ -3,9 +3,10 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, Enum, String, UniqueConstraint, func, true
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.customer_profile import CustomerProfile
 
 
 class UserRole(enum.StrEnum):
@@ -31,6 +32,11 @@ class User(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    # Contact details; only customers have one, and only once they've saved it.
+    profile: Mapped[CustomerProfile | None] = relationship(
+        uselist=False, cascade="all, delete-orphan", passive_deletes=True
     )
 
     def __repr__(self) -> str:

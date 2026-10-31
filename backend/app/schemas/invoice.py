@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr
 from app.models.invoice import Invoice, InvoiceStatus
 from app.models.payment import Payment, PaymentMethod
 from app.models.subscription import SubscriptionStatus
-from app.schemas.common import CustomerSummary
+from app.schemas.common import CustomerSummary, customer_summary
 
 
 class InvoiceLineRead(BaseModel):
@@ -107,7 +107,7 @@ def _summary_fields(invoice: Invoice, today: date) -> dict:
         "id": invoice.id,
         "number": invoice.number,
         "status": invoice.status,
-        "customer": CustomerSummary.model_validate(invoice.customer),
+        "customer": customer_summary(invoice.customer),
         "subscription": InvoiceSubscriptionRef.model_validate(invoice.subscription),
         "invoice_date": invoice.invoice_date,
         "due_date": invoice.due_date,

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { BrandLogo } from "@/components/brand-logo";
 import {
   Alert,
+  BillTo,
   Button,
   Card,
   Field,
@@ -196,7 +197,9 @@ function InvoiceDocument({ invoice }: { invoice: Invoice }) {
       <div className="grid gap-6 py-6 text-sm sm:grid-cols-3">
         <div>
           <p className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">Bill to</p>
-          <p className="mt-1 text-zinc-900">{invoice.customer.email}</p>
+          <div className="mt-1">
+            <BillTo customer={invoice.customer} />
+          </div>
         </div>
         <div>
           <p className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">

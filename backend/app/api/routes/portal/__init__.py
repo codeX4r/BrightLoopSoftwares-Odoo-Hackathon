@@ -9,7 +9,8 @@ that call it and owns any other portal routes added here.
 
 from fastapi import APIRouter
 
-from app.api.routes.portal import billing
+from app.api.routes.portal import billing, profile
 
 router = APIRouter(prefix="/api/portal")
 router.include_router(billing.router)
+router.include_router(profile.router)

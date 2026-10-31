@@ -25,6 +25,11 @@ SUBSCRIPTION_EVENTS = (
         "Quotation {number} sent to {email}",
     ),
     (Subscription.confirmed_at, "quotation_accepted", "Quotation {number} accepted"),
+    (
+        Subscription.rejected_at,
+        "quotation_rejected",
+        "Quotation {number} declined by {email}",
+    ),
     (Subscription.activated_at, "subscription_activated", "{number} activated"),
     (Subscription.closed_at, "subscription_closed", "{number} closed"),
 )

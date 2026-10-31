@@ -14,6 +14,7 @@ class ActivityItem(BaseModel):
         "subscription_created",
         "quotation_sent",
         "quotation_accepted",
+        "quotation_rejected",
         "subscription_activated",
         "subscription_closed",
         "invoice_generated",

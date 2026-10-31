@@ -8,6 +8,7 @@ import { QuotationDocument } from "@/components/staff/quotation-document";
 import { SubscriptionForm } from "@/components/staff/subscription-form";
 import {
   Alert,
+  CustomerCell,
   Button,
   Card,
   DetailList,
@@ -20,6 +21,7 @@ import {
 } from "@/components/staff/ui";
 import { formatDate, formatDateTime, formatMoney, FREQUENCY_LABEL, todayIso } from "@/lib/format";
 import {
+  customerName,
   errorMessage,
   getSubscription,
   listInvoices,
@@ -57,7 +59,7 @@ export default function SubscriptionDetailPage() {
         </Link>
         <PageHeader
           title={sub.number}
-          description={`${sub.plan_name} · ${sub.customer.email}`}
+          description={`${sub.plan_name} · ${customerName(sub.customer)}`}
           actions={
             <>
               <SubscriptionStatusBadge status={sub.status} />
@@ -88,7 +90,14 @@ export default function SubscriptionDetailPage() {
             <Card title="Details">
               <DetailList
                 items={[
-                  ["Customer", sub.customer.email],
+                  [
+                    "Customer",
+                    <CustomerCell
+                      key="customer"
+                      customer={sub.customer}
+                      href={`/staff/customers/${sub.customer.id}`}
+                    />,
+                  ],
                   ["Billing", FREQUENCY_LABEL[sub.billing_frequency]],
                   ["Payment terms", `${sub.payment_terms_days} days`],
                   ["Quotation valid until", formatDate(sub.quotation_valid_until)],
@@ -236,6 +245,19 @@ function LifecycleActions({
 
   const days = Number(validDays);
   const daysValid = Number.isInteger(days) && days >= 1 && days <= 365;
+
+  if (sub.status === "CLOSED" && sub.rejected_at) {
+    return (
+      <Alert>
+        <span className="font-semibold">Declined by the customer</span> on{" "}
+        {formatDateTime(sub.rejected_at)}.
+        <span className="mt-1 block">
+          {sub.rejection_reason ? `Reason: “${sub.rejection_reason}”` : "No reason given."}
+        </span>
+        <span className="mt-1 block">Create a new quotation to send a revised offer.</span>
+      </Alert>
+    );
+  }
 
   if (sub.status === "CLOSED") {
     return (

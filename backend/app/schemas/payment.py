@@ -6,7 +6,12 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, EmailStr, StringConstraints
 
 from app.models.payment import Payment, PaymentMethod
-from app.schemas.common import OptionalNotes, PositiveMoney
+from app.schemas.common import (
+    CustomerSummary,
+    OptionalNotes,
+    PositiveMoney,
+    customer_summary,
+)
 
 
 class PaymentCreate(BaseModel):
@@ -27,6 +32,7 @@ class PaymentRead(BaseModel):
     id: uuid.UUID
     invoice_id: uuid.UUID
     invoice_number: str
+    customer: CustomerSummary
     customer_email: EmailStr
     amount: Decimal
     method: PaymentMethod
@@ -42,6 +48,7 @@ def payment_read(payment: Payment) -> PaymentRead:
         id=payment.id,
         invoice_id=payment.invoice_id,
         invoice_number=payment.invoice.number,
+        customer=customer_summary(payment.invoice.customer),
         customer_email=payment.invoice.customer.email,
         amount=payment.amount,
         method=payment.method,

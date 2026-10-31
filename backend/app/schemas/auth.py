@@ -17,6 +17,18 @@ _PASSWORD_RULES = (
 )
 
 
+def check_customer_password(value: str) -> str:
+    """Applies the customer password rule. Raises ValueError listing what's missing."""
+    if len(value) < SIGNUP_PASSWORD_MIN_LENGTH:
+        raise ValueError(
+            f"Password must be at least {SIGNUP_PASSWORD_MIN_LENGTH} characters"
+        )
+    missing = [label for pattern, label in _PASSWORD_RULES if not pattern.search(value)]
+    if missing:
+        raise ValueError("Password must contain " + ", ".join(missing))
+    return value
+
+
 class SignupRequest(BaseModel):
     """Public self-registration. It always creates a CUSTOMER account.
 
@@ -35,12 +47,7 @@ class SignupRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def password_strength(cls, value: str) -> str:
-        missing = [
-            label for pattern, label in _PASSWORD_RULES if not pattern.search(value)
-        ]
-        if missing:
-            raise ValueError("Password must contain " + ", ".join(missing))
-        return value
+        return check_customer_password(value)
 
 
 class LoginRequest(BaseModel):

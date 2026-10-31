@@ -2,6 +2,7 @@
 
 from app.db.base import Base
 from app.models.auth_session import AuthSession
+from app.models.customer_profile import CustomerProfile
 from app.models.invoice import Invoice, InvoiceLine, InvoiceStatus
 from app.models.number_sequence import NumberSequence
 from app.models.payment import Payment, PaymentMethod
@@ -17,6 +18,7 @@ __all__ = [
     "AuthSession",
     "Base",
     "BillingFrequency",
+    "CustomerProfile",
     "Invoice",
     "InvoiceLine",
     "InvoiceStatus",

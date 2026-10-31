@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import {
   Alert,
+  CustomerCell,
   inputClass,
   LoadingRow,
   PageHeader,
@@ -128,7 +129,9 @@ export default function PaymentsPage() {
                     {p.invoice_number}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-zinc-700">{p.customer_email}</td>
+                <td className="px-4 py-3">
+                  <CustomerCell customer={p.customer} href={`/staff/customers/${p.customer.id}`} />
+                </td>
                 <td className="px-4 py-3 text-zinc-700">{PAYMENT_METHOD_LABEL[p.method]}</td>
                 <td className="px-4 py-3 text-zinc-500">{p.reference ?? "—"}</td>
                 <td className="px-4 py-3 text-right font-medium text-zinc-900">

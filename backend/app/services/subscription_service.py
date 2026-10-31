@@ -16,6 +16,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.models.customer_profile import CustomerProfile
 from app.models.subscription import Subscription, SubscriptionLine, SubscriptionStatus
 from app.models.user import User, UserRole
 from app.schemas.subscription import (
@@ -45,7 +46,8 @@ class SubscriptionList:
 
 def _with_relations():
     return select(Subscription).options(
-        selectinload(Subscription.lines), selectinload(Subscription.customer)
+        selectinload(Subscription.lines),
+        selectinload(Subscription.customer).selectinload(User.profile),
     )
 
 
@@ -95,11 +97,17 @@ def list_subscriptions(
         query = query.where(Subscription.customer_id == customer_id)
     if search:
         pattern = f"%{search.strip()}%"
-        query = query.join(User, User.id == Subscription.customer_id).where(
-            or_(
-                Subscription.number.ilike(pattern),
-                Subscription.plan_name.ilike(pattern),
-                User.email.ilike(pattern),
+        query = (
+            query.join(User, User.id == Subscription.customer_id)
+            .outerjoin(CustomerProfile, CustomerProfile.user_id == User.id)
+            .where(
+                or_(
+                    Subscription.number.ilike(pattern),
+                    Subscription.plan_name.ilike(pattern),
+                    User.email.ilike(pattern),
+                    CustomerProfile.full_name.ilike(pattern),
+                    CustomerProfile.company_name.ilike(pattern),
+                )
             )
         )
 
@@ -282,6 +290,33 @@ def activate(
     return _save(db, sub)
 
 
+def reject(
+    db: Session,
+    subscription_id: uuid.UUID,
+    *,
+    customer_id: uuid.UUID,
+    reason: str | None,
+) -> Subscription:
+    """The customer declines their quotation: QUOTATION -> CLOSED, marked as rejected.
+
+    Allowed even after the validity date, so customers can clear expired offers.
+    """
+    sub = _transition(
+        db,
+        subscription_id,
+        allowed_from=(SubscriptionStatus.QUOTATION,),
+        action="reject",
+        customer_id=customer_id,
+    )
+    now = clock.now_utc()
+    sub.status = SubscriptionStatus.CLOSED
+    sub.rejected_at = now
+    sub.rejection_reason = reason or None
+    sub.closed_at = now
+    sub.next_billing_date = None
+    return _save(db, sub)
+
+
 def close(db: Session, subscription_id: uuid.UUID) -> Subscription:
     """Ends the subscription. Invoices already issued are kept as they are."""
     sub = _transition(
@@ -305,7 +340,19 @@ def list_customer_options(
     db: Session, *, search: str | None, limit: int
 ) -> Sequence[User]:
     """Active customers for the staff customer picker."""
-    query = select(User).where(User.role == UserRole.CUSTOMER, User.is_active.is_(True))
+    query = (
+        select(User)
+        .options(selectinload(User.profile))
+        .outerjoin(CustomerProfile, CustomerProfile.user_id == User.id)
+        .where(User.role == UserRole.CUSTOMER, User.is_active.is_(True))
+    )
     if search:
-        query = query.where(User.email.ilike(f"%{search.strip()}%"))
+        pattern = f"%{search.strip()}%"
+        query = query.where(
+            or_(
+                User.email.ilike(pattern),
+                CustomerProfile.full_name.ilike(pattern),
+                CustomerProfile.company_name.ilike(pattern),
+            )
+        )
     return db.scalars(query.order_by(User.email).limit(limit)).all()
