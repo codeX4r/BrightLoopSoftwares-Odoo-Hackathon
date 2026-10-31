@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import {
   Alert,
+  CustomerCell,
   ButtonLink,
   inputClass,
   LoadingRow,
@@ -130,7 +131,12 @@ export default function SubscriptionsPage() {
                     {sub.number}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-zinc-700">{sub.customer.email}</td>
+                <td className="px-4 py-3">
+                  <CustomerCell
+                    customer={sub.customer}
+                    href={`/staff/customers/${sub.customer.id}`}
+                  />
+                </td>
                 <td className="px-4 py-3 text-zinc-700">
                   {sub.plan_name}
                   <span className="block text-xs text-zinc-500">
@@ -139,6 +145,9 @@ export default function SubscriptionsPage() {
                 </td>
                 <td className="px-4 py-3">
                   <SubscriptionStatusBadge status={sub.status} />
+                  {sub.rejected_at && (
+                    <span className="block pt-1 text-xs text-red-700">Declined by customer</span>
+                  )}
                   {sub.status === "QUOTATION" && sub.quotation_valid_until && (
                     <span className="block pt-1 text-xs text-zinc-500">
                       Valid until {formatDate(sub.quotation_valid_until)}

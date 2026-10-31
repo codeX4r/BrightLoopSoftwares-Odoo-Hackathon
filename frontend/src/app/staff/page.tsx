@@ -6,6 +6,7 @@ import { useState } from "react";
 import { BillingRunPanel } from "@/components/staff/billing-run-panel";
 import {
   Alert,
+  CustomerCell,
   Card,
   inputClass,
   InvoiceStatusBadge,
@@ -165,7 +166,12 @@ export default function StaffDashboardPage() {
                     {invoice.number}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-zinc-700">{invoice.customer.email}</td>
+                <td className="px-4 py-3">
+                  <CustomerCell
+                    customer={invoice.customer}
+                    href={`/staff/customers/${invoice.customer.id}`}
+                  />
+                </td>
                 <td className="px-4 py-3 text-zinc-700">{formatDate(invoice.due_date)}</td>
                 <td className="px-4 py-3 text-right font-medium text-zinc-900">
                   {formatMoney(invoice.amount_due)}
@@ -186,6 +192,7 @@ const ACTIVITY_DOT: Record<ActivityItem["kind"], string> = {
   subscription_created: "bg-zinc-400",
   quotation_sent: "bg-amber-500",
   quotation_accepted: "bg-sky-500",
+  quotation_rejected: "bg-red-400",
   subscription_activated: "bg-emerald-500",
   subscription_closed: "bg-zinc-400",
   invoice_generated: "bg-indigo-400",

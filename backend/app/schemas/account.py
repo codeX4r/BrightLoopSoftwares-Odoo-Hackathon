@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.schemas.auth import SIGNUP_PASSWORD_MIN_LENGTH, SignupRequest
+from app.schemas.auth import SIGNUP_PASSWORD_MIN_LENGTH, check_customer_password
 from app.schemas.user import PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH
 
 
@@ -21,7 +21,7 @@ class PasswordChangeRequest(BaseModel):
     @field_validator("new_password")
     @classmethod
     def new_password_strength(cls, value: str) -> str:
-        return SignupRequest.password_strength(value)
+        return check_customer_password(value)
 
     @model_validator(mode="after")
     def new_password_differs(self) -> "PasswordChangeRequest":

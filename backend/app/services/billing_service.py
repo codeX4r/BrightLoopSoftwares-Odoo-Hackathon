@@ -95,7 +95,7 @@ def _build_invoice(sub: Subscription, number: str, start: date, end: date) -> In
     )
 
 
-def _bill_subscription(
+def bill_subscription(
     db: Session, subscription_id: uuid.UUID, as_of: date
 ) -> list[str]:
     """Bills one subscription in its own transaction. Returns the new invoice numbers."""
@@ -169,7 +169,7 @@ def generate_due_invoices(db: Session, as_of: date) -> BillingRun:
     db.rollback()  # End the read transaction; each subscription gets its own.
 
     for subscription_id in due_ids:
-        numbers = _bill_subscription(db, subscription_id, as_of)
+        numbers = bill_subscription(db, subscription_id, as_of)
         if numbers:
             run.subscriptions_billed += 1
             run.invoice_numbers.extend(numbers)

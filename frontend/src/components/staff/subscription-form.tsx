@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { Alert, Button, Card, Field, inputClass } from "@/components/staff/ui";
+import { Alert, CustomerCell, Button, Card, Field, inputClass } from "@/components/staff/ui";
 import { FREQUENCY_LABEL, formatMoney } from "@/lib/format";
 import {
   customerOptions,
@@ -400,7 +400,7 @@ function CustomerPicker({
           id="customer-selected"
           className="flex items-center justify-between rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm"
         >
-          <span className="font-medium text-zinc-900">{value.email}</span>
+          <CustomerCell customer={value} />
           <button
             type="button"
             onClick={() => onChange(null)}
@@ -441,7 +441,7 @@ function CustomerPicker({
                   onClick={() => onChange(c)}
                   className="block w-full px-3 py-2 text-left text-sm text-zinc-800 hover:bg-indigo-50"
                 >
-                  {c.email}
+                  <CustomerCell customer={c} />
                 </button>
               </li>
             ))

@@ -206,8 +206,8 @@ Sign in at http://localhost:3000/login, choose the matching role in **Login as**
 | Login as | Email | Password | Lands on |
 |---|---|---|---|
 | Admin | `admin@brightloop.com` | `Admin@123456` | `/admin` |
-| Staff | `staff@brightloop.com` | `Staff@Brightloop2026` | `/staff` |
-| Customer | `customer@brightloop.com` | `Customer@Brightloop2026` | `/portal` |
+| Staff | `staff@brightloop.com` | `Staff@123456` | `/staff` |
+| Customer | `customer@brightloop.com` | `Customer@123` | `/portal` |
 
 The staff and customer accounts are created by the Alembic migration `a7c2e9d41b03_seed_demo_staff_and_customer`, so `uv run alembic upgrade head` creates them on any new database. Running it again does not duplicate or overwrite them.
 

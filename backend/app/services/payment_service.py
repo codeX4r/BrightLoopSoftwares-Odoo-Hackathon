@@ -24,7 +24,9 @@ class PaymentList:
 
 def _with_relations():
     return select(Payment).options(
-        selectinload(Payment.invoice).selectinload(Invoice.customer),
+        selectinload(Payment.invoice)
+        .selectinload(Invoice.customer)
+        .selectinload(User.profile),
         selectinload(Payment.recorded_by),
     )
 
@@ -81,10 +83,15 @@ def list_payments(
     date_to: date | None,
     page: int,
     page_size: int,
+    customer_id: uuid.UUID | None = None,
 ) -> PaymentList:
     query = select(Payment)
     if invoice_id is not None:
         query = query.where(Payment.invoice_id == invoice_id)
+    if customer_id is not None:
+        query = query.join(Invoice, Invoice.id == Payment.invoice_id).where(
+            Invoice.customer_id == customer_id
+        )
     if method is not None:
         query = query.where(Payment.method == method)
     if date_from is not None:

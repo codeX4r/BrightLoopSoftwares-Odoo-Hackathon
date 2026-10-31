@@ -6,6 +6,7 @@ import { useState } from "react";
 import { BillingRunPanel } from "@/components/staff/billing-run-panel";
 import {
   Alert,
+  CustomerCell,
   inputClass,
   InvoiceStatusBadge,
   LoadingRow,
@@ -140,7 +141,12 @@ export default function InvoicesPage() {
                     {formatDate(invoice.invoice_date)}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-zinc-700">{invoice.customer.email}</td>
+                <td className="px-4 py-3">
+                  <CustomerCell
+                    customer={invoice.customer}
+                    href={`/staff/customers/${invoice.customer.id}`}
+                  />
+                </td>
                 <td className="px-4 py-3 text-zinc-700">
                   <Link
                     href={`/staff/subscriptions/${invoice.subscription.id}`}

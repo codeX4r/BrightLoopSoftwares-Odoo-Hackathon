@@ -1,4 +1,5 @@
 import { BrandLogo } from "@/components/brand-logo";
+import { BillTo } from "@/components/staff/ui";
 import { formatDate, formatMoney, FREQUENCY_LABEL } from "@/lib/format";
 import type { BillingFrequency, Subscription } from "@/lib/staff-api";
 
@@ -36,7 +37,9 @@ export function QuotationDocument({ sub }: { sub: Subscription }) {
           <p className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
             Prepared for
           </p>
-          <p className="mt-1">{sub.customer.email}</p>
+          <div className="mt-1">
+            <BillTo customer={sub.customer} />
+          </div>
         </div>
         <div>
           <p className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">Plan</p>

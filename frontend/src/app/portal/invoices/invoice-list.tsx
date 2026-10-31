@@ -12,14 +12,23 @@ import {
   TableShell,
 } from "@/components/staff/ui";
 import { formatDate, formatMoney } from "@/lib/format";
-import { listMyInvoices } from "@/lib/portal-api";
+import { listMyInvoices, type MyInvoiceFilter } from "@/lib/portal-api";
 import { useApiData } from "@/lib/use-api-data";
 
 const PAGE_SIZE = 20;
 
+const FILTERS: { value: MyInvoiceFilter; label: string }[] = [
+  { value: "", label: "All" },
+  { value: "UNPAID", label: "Unpaid" },
+  { value: "OVERDUE", label: "Overdue" },
+  { value: "PAID", label: "Paid" },
+  { value: "CANCELLED", label: "Cancelled" },
+];
+
 export default function MyInvoicesPage() {
   const [page, setPage] = useState(1);
-  const list = useApiData(() => listMyInvoices(page, PAGE_SIZE), [page]);
+  const [filter, setFilter] = useState<MyInvoiceFilter>("");
+  const list = useApiData(() => listMyInvoices(page, PAGE_SIZE, filter), [page, filter]);
 
   return (
     <div className="space-y-6">
@@ -28,6 +37,27 @@ export default function MyInvoicesPage() {
         description="Invoices for your subscriptions, with what you've paid and what's still due."
       />
 
+      <div role="group" aria-label="Filter invoices" className="flex flex-wrap gap-2">
+        {FILTERS.map((f) => (
+          <button
+            key={f.value || "all"}
+            type="button"
+            aria-pressed={filter === f.value}
+            onClick={() => {
+              setPage(1);
+              setFilter(f.value);
+            }}
+            className={`rounded-full px-3 py-1.5 text-sm font-medium ring-1 transition ring-inset ${
+              filter === f.value
+                ? "bg-indigo-600 text-white ring-indigo-600"
+                : "bg-white text-zinc-700 ring-zinc-300 hover:bg-zinc-50"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       {list.error && <Alert>{list.error}</Alert>}
       {!list.data ? (
         !list.error && <LoadingRow />
@@ -35,7 +65,11 @@ export default function MyInvoicesPage() {
         <>
           <TableShell
             isEmpty={list.data.items.length === 0}
-            empty="No invoices yet. They appear here once a subscription is billed."
+            empty={
+              filter
+                ? "No invoices match this filter."
+                : "No invoices yet. They appear here once a subscription is billed."
+            }
             head={
               <tr>
                 <th className="px-4 py-3">Invoice</th>

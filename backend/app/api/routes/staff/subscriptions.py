@@ -6,7 +6,13 @@ from fastapi import APIRouter, Query, status
 from app.api.permissions import StaffOrAdmin
 from app.db.session import DbSession
 from app.models.subscription import SubscriptionStatus
-from app.schemas.common import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, CustomerSummary, Page
+from app.schemas.common import (
+    DEFAULT_PAGE_SIZE,
+    MAX_PAGE_SIZE,
+    CustomerSummary,
+    Page,
+    customer_summary,
+)
 from app.schemas.subscription import (
     ActivateRequest,
     SendQuotationRequest,
@@ -58,7 +64,7 @@ def customer_options(
 ) -> list[CustomerSummary]:
     """Active customers to pick from when creating a quotation."""
     return [
-        CustomerSummary.model_validate(u)
+        customer_summary(u)
         for u in subscription_service.list_customer_options(
             db, search=search, limit=limit
         )

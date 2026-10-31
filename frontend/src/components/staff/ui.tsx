@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 import { INVOICE_STATUS_LABEL, SUBSCRIPTION_STATUS_LABEL } from "@/lib/format";
-import type { InvoiceStatus, SubscriptionStatus } from "@/lib/staff-api";
+import type { CustomerSummary, InvoiceStatus, SubscriptionStatus } from "@/lib/staff-api";
 
 /** Shared input classes, matching the login form. */
 export const inputClass =
@@ -278,6 +278,44 @@ export function LoadingRow() {
     <p className="py-10 text-center text-sm text-zinc-500" aria-live="polite">
       Loading…
     </p>
+  );
+}
+
+/** Customer name and company, with the email underneath (or alone if no profile yet). */
+export function CustomerCell({ customer, href }: { customer: CustomerSummary; href?: string }) {
+  const named = Boolean(customer.full_name || customer.company_name);
+  const main = named ? (
+    <span className="font-medium text-zinc-900">
+      {customer.full_name ?? customer.company_name}
+      {customer.full_name && customer.company_name && (
+        <span className="font-normal text-zinc-500"> · {customer.company_name}</span>
+      )}
+    </span>
+  ) : (
+    <span className="text-zinc-700">{customer.email}</span>
+  );
+  return (
+    <span className="block">
+      {href ? (
+        <Link href={href} className="hover:text-indigo-600">
+          {main}
+        </Link>
+      ) : (
+        main
+      )}
+      {named && <span className="block text-xs text-zinc-500">{customer.email}</span>}
+    </span>
+  );
+}
+
+/** Customer block for printed quotations and invoices. */
+export function BillTo({ customer }: { customer: CustomerSummary }) {
+  return (
+    <div className="text-sm text-zinc-900">
+      {customer.full_name && <p className="font-medium">{customer.full_name}</p>}
+      {customer.company_name && <p>{customer.company_name}</p>}
+      <p className="text-zinc-600">{customer.email}</p>
+    </div>
   );
 }
 
