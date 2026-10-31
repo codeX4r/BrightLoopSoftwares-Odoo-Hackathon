@@ -1,15 +1,9 @@
-"use client";
+import PortalOverview from "./portal-overview";
 
-import { RoleGuard } from "@/components/auth/role-guard";
+// Portal pages load the customer's data in the browser after a session check, so they
+// are not instant by design. `instant` must be exported from a Server Component.
+export const instant = false;
 
-export default function CustomerPortalPage() {
-  return (
-    <RoleGuard role="CUSTOMER" title="Customer Portal">
-      {(user) => (
-        <p className="text-zinc-600">
-          Welcome, <span className="font-medium text-zinc-900">{user.email}</span>.
-        </p>
-      )}
-    </RoleGuard>
-  );
+export default function Page() {
+  return <PortalOverview />;
 }
