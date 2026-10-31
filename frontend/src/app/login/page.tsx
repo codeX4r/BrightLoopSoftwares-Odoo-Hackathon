@@ -48,12 +48,17 @@ export default function LoginPage() {
           <div className="mt-8">
             <LoginForm />
           </div>
-          <p className="mt-6 text-center text-sm text-zinc-600">
-            New customer?{" "}
-            <Link href="/signup" className="font-semibold text-indigo-600 hover:text-indigo-500">
-              Create an account
-            </Link>
-          </p>
+          <div className="mt-6 flex items-center gap-3" aria-hidden="true">
+            <span className="h-px flex-1 bg-zinc-200" />
+            <span className="text-xs text-zinc-500">New customer?</span>
+            <span className="h-px flex-1 bg-zinc-200" />
+          </div>
+          <Link
+            href="/signup"
+            className="mt-4 flex w-full items-center justify-center rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:outline-none"
+          >
+            Sign up
+          </Link>
         </div>
       </section>
     </main>
