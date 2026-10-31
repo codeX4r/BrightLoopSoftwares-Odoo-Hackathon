@@ -209,15 +209,15 @@ Sign in at http://localhost:3000/login, choose the matching role in **Login as**
 | Staff | `staff@brightloop.com` | `Staff@Brightloop2026` | `/staff` |
 | Customer | `customer@brightloop.com` | `Customer@Brightloop2026` | `/portal` |
 
-These accounts are not created automatically. On a new database, create them from `backend/`:
+The staff and customer accounts are created by the Alembic migration `a7c2e9d41b03_seed_demo_staff_and_customer`, so `uv run alembic upgrade head` creates them on any new database. Running it again does not duplicate or overwrite them.
+
+The admin account is seeded from an environment variable, so its password never goes in the repo. On a new database, run from `backend/`:
 
 ```bash
-uv run python -m app.cli create-admin --email admin@brightloop.com
-uv run python -m app.cli create-user --role STAFF --email staff@brightloop.com
-uv run python -m app.cli create-user --role CUSTOMER --email customer@brightloop.com
+SEED_ADMIN_PASSWORD='choose-a-12+-char-password' uv run alembic upgrade head
 ```
 
-Each command prompts for the password (minimum 12 characters).
+Optional: set `SEED_ADMIN_EMAIL` (default `admin@brightloop.com`). Without `SEED_ADMIN_PASSWORD`, the migration skips the admin. You can also create an admin with `uv run python -m app.cli create-admin --email admin@brightloop.com`.
 
 > **Warning:** These credentials are public. Use them only on local or demo databases, never in production.
 
