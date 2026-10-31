@@ -1,0 +1,285 @@
+import { ApiError, apiRequest } from "@/lib/api";
+
+export type SubscriptionStatus = "DRAFT" | "QUOTATION" | "CONFIRMED" | "ACTIVE" | "CLOSED";
+export type BillingFrequency = "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+export type InvoiceStatus = "DRAFT" | "CONFIRMED" | "PAID" | "CANCELLED";
+export type PaymentMethod = "CASH" | "BANK_TRANSFER" | "UPI" | "CARD" | "CHEQUE" | "OTHER";
+
+/** Money and rates arrive as decimal strings ("1180.00") so no precision is lost. */
+export type Decimal = string;
+
+export type Page<T> = { items: T[]; total: number; page: number; page_size: number };
+
+export type CustomerSummary = { id: string; email: string };
+
+export type SubscriptionLine = {
+  id: string;
+  description: string;
+  quantity: number;
+  unit_price: Decimal;
+  tax_rate: Decimal;
+  subtotal: Decimal;
+  tax_amount: Decimal;
+  total: Decimal;
+};
+
+export type SubscriptionSummary = {
+  id: string;
+  number: string;
+  status: SubscriptionStatus;
+  customer: CustomerSummary;
+  plan_name: string;
+  billing_frequency: BillingFrequency;
+  start_date: string | null;
+  expiry_date: string | null;
+  next_billing_date: string | null;
+  quotation_valid_until: string | null;
+  subtotal: Decimal;
+  tax_total: Decimal;
+  total: Decimal;
+  created_at: string;
+};
+
+export type Subscription = SubscriptionSummary & {
+  payment_terms_days: number;
+  notes: string | null;
+  quotation_sent_at: string | null;
+  confirmed_at: string | null;
+  activated_at: string | null;
+  closed_at: string | null;
+  updated_at: string;
+  lines: SubscriptionLine[];
+};
+
+export type SubscriptionLineInput = {
+  description: string;
+  quantity: number;
+  unit_price: string;
+  tax_rate: string;
+};
+
+export type SubscriptionInput = {
+  customer_id: string;
+  plan_name: string;
+  billing_frequency: BillingFrequency;
+  payment_terms_days: number;
+  expiry_date: string | null;
+  notes: string | null;
+  lines: SubscriptionLineInput[];
+};
+
+export type InvoiceSummary = {
+  id: string;
+  number: string;
+  status: InvoiceStatus;
+  customer: CustomerSummary;
+  subscription: { id: string; number: string; plan_name: string; status: SubscriptionStatus };
+  invoice_date: string;
+  due_date: string;
+  period_start: string;
+  period_end: string;
+  subtotal: Decimal;
+  tax_total: Decimal;
+  total: Decimal;
+  amount_paid: Decimal;
+  amount_due: Decimal;
+  is_overdue: boolean;
+  sent_at: string | null;
+};
+
+export type InvoicePayment = {
+  id: string;
+  amount: Decimal;
+  method: PaymentMethod;
+  paid_on: string;
+  reference: string | null;
+  notes: string | null;
+  recorded_by: string | null;
+  created_at: string;
+};
+
+export type Invoice = InvoiceSummary & {
+  confirmed_at: string | null;
+  paid_at: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+  lines: Omit<SubscriptionLine, "id">[];
+  payments: InvoicePayment[];
+};
+
+export type Payment = InvoicePayment & {
+  invoice_id: string;
+  invoice_number: string;
+  customer_email: string;
+};
+
+export type ActivityItem = {
+  at: string;
+  kind:
+    | "subscription_created"
+    | "quotation_sent"
+    | "quotation_accepted"
+    | "subscription_activated"
+    | "subscription_closed"
+    | "invoice_generated"
+    | "invoice_confirmed"
+    | "invoice_paid"
+    | "invoice_cancelled"
+    | "payment_recorded";
+  message: string;
+  target: "subscription" | "invoice";
+  target_id: string;
+};
+
+export type StaffDashboard = {
+  as_of: string;
+  date_from: string | null;
+  date_to: string | null;
+  total_customers: number;
+  active_customers: number;
+  recent_activity: ActivityItem[];
+  active_subscriptions: number;
+  open_quotations: number;
+  awaiting_activation: number;
+  revenue_received: Decimal;
+  payments_count: number;
+  outstanding_invoices: number;
+  outstanding_amount: Decimal;
+  overdue_invoices: number;
+  overdue_amount: Decimal;
+  draft_invoices: number;
+};
+
+export type BillingRunResult = {
+  as_of: string;
+  subscriptions_billed: number;
+  invoices_created: number;
+  invoice_numbers: string[];
+};
+
+type QueryValue = string | number | boolean | null | undefined;
+
+function withQuery(path: string, params: Record<string, QueryValue>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") search.set(key, String(value));
+  }
+  const query = search.toString();
+  return query ? `${path}?${query}` : path;
+}
+
+/** A readable message for any error thrown by these calls. */
+export function errorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 422 && error.message.startsWith("Request failed")) {
+      return "Some fields are invalid. Check the form and try again.";
+    }
+    if (error.status === 403) return "You don't have permission to do that.";
+    return error.message;
+  }
+  return "Something went wrong. Check your connection and try again.";
+}
+
+// --- Subscriptions and quotations ---
+
+export function listSubscriptions(params: {
+  status?: SubscriptionStatus | "";
+  search?: string;
+  customer_id?: string;
+  page?: number;
+}) {
+  return apiRequest<Page<SubscriptionSummary>>(withQuery("/api/staff/subscriptions", params));
+}
+
+export function getSubscription(id: string) {
+  return apiRequest<Subscription>(`/api/staff/subscriptions/${encodeURIComponent(id)}`);
+}
+
+export function createSubscription(body: SubscriptionInput) {
+  return apiRequest<Subscription>("/api/staff/subscriptions", { method: "POST", body });
+}
+
+export function updateSubscription(id: string, body: SubscriptionInput) {
+  return apiRequest<Subscription>(`/api/staff/subscriptions/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body,
+  });
+}
+
+export type SubscriptionAction =
+  | { action: "send-quotation"; body: { valid_days: number } }
+  | { action: "revert-to-draft" }
+  | { action: "confirm" }
+  | { action: "activate"; body: { start_date: string | null; expiry_date: string | null } }
+  | { action: "close" };
+
+export function runSubscriptionAction(id: string, request: SubscriptionAction) {
+  return apiRequest<Subscription>(
+    `/api/staff/subscriptions/${encodeURIComponent(id)}/${request.action}`,
+    { method: "POST", body: "body" in request ? request.body : {} },
+  );
+}
+
+export function customerOptions(search: string) {
+  return apiRequest<CustomerSummary[]>(
+    withQuery("/api/staff/subscriptions/customer-options", { search, limit: 20 }),
+  );
+}
+
+// --- Invoices and billing ---
+
+export function listInvoices(params: {
+  status?: InvoiceStatus | "";
+  overdue?: boolean;
+  search?: string;
+  subscription_id?: string;
+  page?: number;
+}) {
+  return apiRequest<Page<InvoiceSummary>>(withQuery("/api/staff/invoices", params));
+}
+
+export function getInvoice(id: string) {
+  return apiRequest<Invoice>(`/api/staff/invoices/${encodeURIComponent(id)}`);
+}
+
+export function runInvoiceAction(id: string, action: "confirm" | "cancel" | "send") {
+  return apiRequest<Invoice>(`/api/staff/invoices/${encodeURIComponent(id)}/${action}`, {
+    method: "POST",
+  });
+}
+
+export function runBilling(asOf: string | null) {
+  return apiRequest<BillingRunResult>("/api/staff/billing/run", {
+    method: "POST",
+    body: { as_of: asOf },
+  });
+}
+
+// --- Payments ---
+
+export function listPayments(params: {
+  method?: PaymentMethod | "";
+  date_from?: string;
+  date_to?: string;
+  invoice_id?: string;
+  page?: number;
+}) {
+  return apiRequest<Page<Payment>>(withQuery("/api/staff/payments", params));
+}
+
+export function recordPayment(body: {
+  invoice_id: string;
+  amount: string;
+  method: PaymentMethod;
+  paid_on: string | null;
+  reference: string | null;
+  notes: string | null;
+}) {
+  return apiRequest<Payment>("/api/staff/payments", { method: "POST", body });
+}
+
+// --- Dashboard ---
+
+export function getStaffDashboard(params: { date_from?: string; date_to?: string }) {
+  return apiRequest<StaffDashboard>(withQuery("/api/staff/dashboard", params));
+}

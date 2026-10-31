@@ -9,7 +9,8 @@ import { getCurrentUser, logout, ROLE_HOME, type CurrentUser, type Role } from "
 
 type RoleGuardProps = {
   role: Role;
-  title: string;
+  /** Page heading. Omit when the children render their own headings. */
+  title?: string;
   children: (user: CurrentUser) => ReactNode;
 };
 
@@ -76,7 +77,7 @@ export function RoleGuard({ role, title, children }: RoleGuardProps) {
 
   return (
     <div className="min-h-screen bg-zinc-50 font-sans">
-      <header className="border-b border-zinc-200 bg-white">
+      <header className="border-b border-zinc-200 bg-white print:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
           <BrandLogo />
           <div className="flex items-center gap-4">
@@ -93,8 +94,14 @@ export function RoleGuard({ role, title, children }: RoleGuardProps) {
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-6 py-10">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">{title}</h1>
-        <div className="mt-6">{children(user)}</div>
+        {title ? (
+          <>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">{title}</h1>
+            <div className="mt-6">{children(user)}</div>
+          </>
+        ) : (
+          children(user)
+        )}
       </main>
     </div>
   );
