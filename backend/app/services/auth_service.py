@@ -1,18 +1,19 @@
-"""Credential checks and access-token revocation."""
+"""Credential checks and server-side session management."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.security import (
+    create_session_token,
     hash_password,
     password_needs_rehash,
     verify_dummy_password,
     verify_password,
 )
-from app.models.revoked_token import RevokedToken
+from app.models.auth_session import AuthSession
 from app.models.user import User
 from app.services.user_service import get_user_by_email
 
@@ -38,18 +39,32 @@ def authenticate(db: Session, email: str, password: str) -> User | None:
     return user
 
 
-def revoke_token(db: Session, *, jti: str, expires_at: datetime) -> None:
+def create_session(db: Session, user: User) -> AuthSession:
+    """Starts a session for the user. Lifetime comes from ACCESS_TOKEN_EXPIRE_MINUTES."""
+    settings = get_settings()
     now = datetime.now(UTC)
-    # Opportunistic cleanup: expired tokens are rejected by signature checks anyway.
-    db.execute(delete(RevokedToken).where(RevokedToken.expires_at < now))
-    if db.get(RevokedToken, jti) is None:
-        db.add(RevokedToken(jti=jti, expires_at=expires_at))
-    try:
-        db.commit()
-    except IntegrityError:
-        # A concurrent logout already revoked this token.
-        db.rollback()
+    # Remove sessions that have already expired so the table doesn't grow forever.
+    db.execute(delete(AuthSession).where(AuthSession.expires_at < now))
+    session = AuthSession(
+        token=create_session_token(),
+        user_id=user.id,
+        expires_at=now + timedelta(minutes=settings.access_token_expire_minutes),
+    )
+    db.add(session)
+    db.commit()
+    return session
 
 
-def is_token_revoked(db: Session, jti: str) -> bool:
-    return db.get(RevokedToken, jti) is not None
+def get_active_session(db: Session, token: str) -> AuthSession | None:
+    """Returns the session for this token if it exists and has not expired."""
+    return db.scalar(
+        select(AuthSession).where(
+            AuthSession.token == token,
+            AuthSession.expires_at > datetime.now(UTC),
+        )
+    )
+
+
+def delete_session(db: Session, token: str) -> None:
+    db.execute(delete(AuthSession).where(AuthSession.token == token))
+    db.commit()

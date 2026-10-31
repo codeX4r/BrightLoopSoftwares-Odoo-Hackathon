@@ -42,7 +42,7 @@ uv run python -m app.cli create-admin --email admin@brightloop.com
 
 Admins then create staff accounts with `POST /api/users/staff`. Customer accounts will be created by the customer-management workflow.
 
-`JWT_SECRET_KEY` must be set in `.env` (see `.env.example`).
+Logins create a random session token stored in the `auth_sessions` table. Session length is set by `ACCESS_TOKEN_EXPIRE_MINUTES` (default 30).
 
 ## Lint and test
 

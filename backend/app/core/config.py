@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,13 +23,10 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
 
     # --- Authentication ---
-    # Secret used to sign JWTs. Required; generate one with:
-    #   python -c "import secrets; print(secrets.token_urlsafe(64))"
-    jwt_secret_key: SecretStr = Field(min_length=32)
-    jwt_algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"
+    # Session lifetime. Sessions are random tokens stored in the auth_sessions table.
     access_token_expire_minutes: int = Field(default=30, ge=1, le=24 * 60)
 
-    # The access token is also set as an HttpOnly cookie so browser JS never reads it.
+    # The session token is also set as an HttpOnly cookie so browser JS never reads it.
     auth_cookie_name: str = "access_token"
     # None means "Secure unless ENVIRONMENT=development".
     auth_cookie_secure: bool | None = None

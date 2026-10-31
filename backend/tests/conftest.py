@@ -6,13 +6,11 @@ TEST_DATABASE_URL at a disposable database (its tables are dropped after each te
 """
 
 import os
-import secrets
 
 # Configure settings before any app module is imported, so the app never connects to the
 # real DATABASE_URL from .env.
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "sqlite+pysqlite:///:memory:")
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
-os.environ["JWT_SECRET_KEY"] = secrets.token_urlsafe(48)
 os.environ["ENVIRONMENT"] = "test"
 os.environ["AUTH_COOKIE_SECURE"] = "false"  # TestClient talks plain HTTP.
 

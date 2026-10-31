@@ -68,6 +68,27 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def reset_password(email: str, password_stdin: bool) -> int:
+    password = _read_password(password_stdin)
+    try:
+        data = UserCreate(email=email, password=password)
+    except ValidationError as exc:
+        for error in exc.errors():
+            field = ".".join(str(part) for part in error["loc"])
+            print(f"Error: {field}: {error['msg']}", file=sys.stderr)
+        return 1
+
+    with SessionLocal() as db:
+        user = user_service.get_user_by_email(db, data.email)
+        if user is None:
+            print(f"Error: no account with email {data.email}.", file=sys.stderr)
+            return 1
+        user_service.set_password(db, user, password=data.password)
+
+    print(f"Password updated for {user.role.value} {user.email}.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -81,7 +102,19 @@ def main(argv: list[str] | None = None) -> int:
     user.add_argument("--role", required=True, choices=[r.value for r in UserRole])
     _add_common_args(user)
 
+    reset = commands.add_parser(
+        "reset-password", help="Change the password of an existing account"
+    )
+    reset.add_argument("--email", required=True)
+    reset.add_argument(
+        "--password-stdin",
+        action="store_true",
+        help="Read the new password from stdin instead of prompting",
+    )
+
     args = parser.parse_args(argv)
+    if args.command == "reset-password":
+        return reset_password(args.email, args.password_stdin)
     if args.command == "create-admin":
         return create_account(args.email, UserRole.ADMIN, args.password_stdin)
     if args.command == "create-user":

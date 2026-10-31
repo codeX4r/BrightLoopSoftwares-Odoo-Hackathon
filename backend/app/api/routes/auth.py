@@ -6,7 +6,6 @@ from fastapi.security import HTTPAuthorizationCredentials
 from app.api.deps import CurrentUser, bearer_scheme, get_auth_context
 from app.core.config import get_settings
 from app.core.rate_limit import LoginRateLimiter, get_login_rate_limiter
-from app.core.security import create_access_token
 from app.db.session import DbSession
 from app.schemas.auth import LoginRequest, LoginResponse
 from app.schemas.user import UserRead
@@ -64,7 +63,7 @@ def login(
     db: DbSession,
     limiter: Annotated[LoginRateLimiter, Depends(get_login_rate_limiter)],
 ) -> LoginResponse:
-    """Exchanges email and password for an access token.
+    """Exchanges email and password for a session token.
 
     The role in the response comes from the database. If the client sends a role (the
     login page's role selector), it must match the stored role or the login fails.
@@ -94,11 +93,12 @@ def login(
         )
     limiter.record_success(email)
 
-    token, expires_in = create_access_token(user.id)
-    _set_auth_cookie(response, token, expires_in)
+    session = auth_service.create_session(db, user)
+    expires_in = get_settings().access_token_expire_minutes * 60
+    _set_auth_cookie(response, session.token, expires_in)
     response.headers["Cache-Control"] = "no-store"
     return LoginResponse(
-        access_token=token,
+        access_token=session.token,
         expires_in=expires_in,
         user_id=user.id,
         email=user.email,
@@ -117,9 +117,9 @@ def logout(
     db: DbSession,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> Response:
-    """Revokes the current token and clears the auth cookie.
+    """Deletes the current session and clears the auth cookie.
 
-    Succeeds even if the token is already invalid, so the client can always sign out.
+    Succeeds even if the session is already invalid, so the client can always sign out.
     """
     try:
         context = get_auth_context(request, db, credentials)
@@ -127,9 +127,7 @@ def logout(
         if exc.status_code != status.HTTP_401_UNAUTHORIZED:
             raise
     else:
-        auth_service.revoke_token(
-            db, jti=context.token.jti, expires_at=context.token.expires_at
-        )
+        auth_service.delete_session(db, context.session.token)
 
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     _clear_auth_cookie(response)

@@ -12,7 +12,7 @@ export type CurrentUser = {
 };
 
 export type LoginResponse = {
-  access_token: string;
+  access_token: string; // Random session token. The browser keeps it in the HttpOnly cookie.
   token_type: "bearer";
   expires_in: number;
   user_id: string;

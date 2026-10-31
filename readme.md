@@ -189,7 +189,7 @@ See `backend/README.md` for backend details.
 # Backend (http://localhost:8000)
 cd backend
 uv sync
-cp .env.example .env          # set DATABASE_URL and JWT_SECRET_KEY
+cp .env.example .env          # set DATABASE_URL
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 
@@ -205,7 +205,7 @@ Sign in at http://localhost:3000/login, choose the matching role in **Login as**
 
 | Login as | Email | Password | Lands on |
 |---|---|---|---|
-| Admin | `admin@brightloop.com` | Admin@123456 | `/admin` |
+| Admin | `admin@brightloop.com` | `Admin@123456` | `/admin` |
 | Staff | `staff@brightloop.com` | `Staff@Brightloop2026` | `/staff` |
 | Customer | `customer@brightloop.com` | `Customer@Brightloop2026` | `/portal` |
 

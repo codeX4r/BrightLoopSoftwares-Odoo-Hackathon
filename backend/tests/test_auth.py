@@ -1,9 +1,11 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.core.security import create_access_token
+from app.models.auth_session import AuthSession
 from app.models.user import User, UserRole
 from tests.conftest import PASSWORD, bearer_headers, login
 
@@ -197,43 +199,29 @@ def test_malformed_tokens_are_rejected(client: TestClient, token: str) -> None:
     assert response.status_code == 401
 
 
-def test_token_signed_with_another_key_is_rejected(
-    client: TestClient, admin: User
-) -> None:
-    import jwt
-
-    forged = jwt.encode(
-        {
-            "sub": str(admin.id),
-            "jti": "x",
-            "type": "access",
-            "iat": 0,
-            "exp": 9999999999,
-        },
-        "some-other-secret-that-is-long-enough-123",
-        algorithm="HS256",
+def test_unknown_session_token_is_rejected(client: TestClient) -> None:
+    response = client.get(
+        "/api/auth/me", headers={"Authorization": "Bearer not-a-real-session-token"}
     )
 
-    response = client.get("/api/auth/me", headers={"Authorization": f"Bearer {forged}"})
-
     assert response.status_code == 401
 
 
-def test_expired_token_is_rejected(
-    client: TestClient, admin: User, monkeypatch: pytest.MonkeyPatch
+def test_expired_session_is_rejected(
+    client: TestClient, db: Session, admin: User
 ) -> None:
-    from app.core.config import get_settings
+    headers = bearer_headers(client, admin.email)
+    past = datetime.now(UTC) - timedelta(seconds=1)
+    db.execute(update(AuthSession).values(expires_at=past))
+    db.commit()
 
-    monkeypatch.setattr(get_settings(), "access_token_expire_minutes", -1)
-    token, _ = create_access_token(admin.id)
-
-    response = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    response = client.get("/api/auth/me", headers=headers)
 
     assert response.status_code == 401
 
 
-def test_logout_revokes_token_and_clears_cookie(
-    client: TestClient, admin: User
+def test_logout_deletes_session_and_clears_cookie(
+    client: TestClient, db: Session, admin: User
 ) -> None:
     headers = bearer_headers(client, admin.email)
 
@@ -241,6 +229,7 @@ def test_logout_revokes_token_and_clears_cookie(
 
     assert response.status_code == 204
     assert 'access_token=""' in response.headers["set-cookie"]
+    assert db.scalar(select(func.count()).select_from(AuthSession)) == 0
     assert client.get("/api/auth/me", headers=headers).status_code == 401
 
 

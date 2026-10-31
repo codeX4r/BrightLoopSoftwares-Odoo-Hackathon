@@ -51,6 +51,18 @@ def list_users_by_role(db: Session, role: UserRole) -> Sequence[User]:
     ).all()
 
 
+def set_password(db: Session, user: User, *, password: str) -> User:
+    """Replaces the password hash.
+
+    Tokens issued before the change stay valid until they expire. Deactivating the account
+    stops them immediately.
+    """
+    user.password_hash = hash_password(password)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def set_user_active(db: Session, user: User, *, is_active: bool) -> User:
     user.is_active = is_active
     db.commit()

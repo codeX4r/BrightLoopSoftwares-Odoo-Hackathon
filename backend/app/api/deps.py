@@ -4,13 +4,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Annotated
 
-import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import get_settings
-from app.core.security import AccessTokenClaims, decode_access_token
 from app.db.session import DbSession
+from app.models.auth_session import AuthSession
 from app.models.user import User, UserRole
 from app.services import auth_service, user_service
 
@@ -32,7 +31,7 @@ def _unauthorized(detail: str = "Not authenticated") -> HTTPException:
 @dataclass(frozen=True)
 class AuthContext:
     user: User
-    token: AccessTokenClaims
+    session: AuthSession
 
 
 def get_auth_context(
@@ -40,7 +39,7 @@ def get_auth_context(
     db: DbSession,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> AuthContext:
-    """Resolves the caller from a Bearer header or the HttpOnly auth cookie."""
+    """Resolves the caller from a Bearer header or the auth cookie."""
     settings = get_settings()
     from_cookie = False
     if credentials is not None:
@@ -62,19 +61,15 @@ def get_auth_context(
             status_code=status.HTTP_403_FORBIDDEN, detail="Missing CSRF header"
         )
 
-    try:
-        claims = decode_access_token(token)
-    except jwt.InvalidTokenError:
-        raise _unauthorized("Invalid or expired token") from None
+    session = auth_service.get_active_session(db, token)
+    if session is None:
+        raise _unauthorized("Invalid or expired session")
 
-    if auth_service.is_token_revoked(db, claims.jti):
-        raise _unauthorized("Invalid or expired token")
-
-    user = user_service.get_user_by_id(db, claims.user_id)
+    user = user_service.get_user_by_id(db, session.user_id)
     if user is None or not user.is_active:
-        raise _unauthorized("Invalid or expired token")
+        raise _unauthorized("Invalid or expired session")
 
-    return AuthContext(user=user, token=claims)
+    return AuthContext(user=user, session=session)
 
 
 def get_current_user(
