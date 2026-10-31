@@ -23,7 +23,11 @@ app.add_middleware(
 async def business_rule_error_handler(
     _request: Request, exc: BusinessRuleError
 ) -> JSONResponse:
-    """Turns service-layer rule violations into {"detail": "..."} responses."""
+    """Turns service-layer rule violations into {"detail": "..."} responses.
+
+    Handles every service error (staff, portal and catalog), since they all share this
+    base class. Each subclass sets its own status code.
+    """
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
 

@@ -76,3 +76,14 @@ def get_login_rate_limiter() -> LoginRateLimiter:
         max_failures_per_ip=settings.login_max_failures_per_ip,
         window_seconds=settings.login_failure_window_seconds,
     )
+
+
+@lru_cache
+def get_password_reset_rate_limiter() -> LoginRateLimiter:
+    """Counts every reset request (not only failures), per email and per client IP."""
+    settings = get_settings()
+    return LoginRateLimiter(
+        max_failures_per_email=settings.password_reset_max_per_email,
+        max_failures_per_ip=settings.password_reset_max_per_ip,
+        window_seconds=settings.password_reset_window_seconds,
+    )
