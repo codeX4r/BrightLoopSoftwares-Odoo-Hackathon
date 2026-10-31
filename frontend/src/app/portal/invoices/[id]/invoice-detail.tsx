@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 
 import { BrandLogo } from "@/components/brand-logo";
+import { CompanyDetails } from "@/components/company-details";
 import { Alert, Button, InvoiceStatusBadge, LoadingRow } from "@/components/staff/ui";
 import { formatDate, formatMoney, PAYMENT_METHOD_LABEL } from "@/lib/format";
 import { getMyInvoice } from "@/lib/portal-api";
@@ -83,7 +84,7 @@ function InvoiceDocument({ invoice }: { invoice: Invoice }) {
       <header className="flex flex-wrap items-start justify-between gap-6 border-b border-zinc-200 pb-6">
         <div>
           <BrandLogo />
-          <p className="mt-3 text-sm text-zinc-500">Brightloop Software</p>
+          <CompanyDetails />
         </div>
         <div className="text-right">
           <p className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">Invoice</p>

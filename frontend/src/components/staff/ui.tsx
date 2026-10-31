@@ -1,12 +1,21 @@
 import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
+import { buttonClass } from "@/components/ui/button";
+import { inputClass as sharedInputClass } from "@/components/ui/field";
 import { INVOICE_STATUS_LABEL, SUBSCRIPTION_STATUS_LABEL } from "@/lib/format";
 import type { CustomerSummary, InvoiceStatus, SubscriptionStatus } from "@/lib/staff-api";
 
-/** Shared input classes, matching the login form. */
-export const inputClass =
-  "block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none disabled:cursor-not-allowed disabled:bg-zinc-100 aria-invalid:border-red-400";
+/**
+ * Staff and customer screens use the same buttons, inputs, fields and cards as the admin
+ * screens (components/ui). This module keeps the staff-side names and adds the
+ * staff-specific pieces (status badges, tables, customer cells).
+ */
+export { Card } from "@/components/ui/card";
+export { Field } from "@/components/ui/field";
+
+/** Shared input classes; invalid inputs (aria-invalid) get a red border. */
+export const inputClass = `${sharedInputClass()} aria-invalid:border-red-400`;
 
 export function PageHeader({
   title,
@@ -33,13 +42,6 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   busy?: boolean;
 };
 
-const BUTTON_VARIANT = {
-  primary: "bg-indigo-600 text-white shadow-sm hover:bg-indigo-500 focus-visible:ring-indigo-300",
-  secondary:
-    "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 focus-visible:ring-indigo-200",
-  danger: "border border-red-200 bg-white text-red-700 hover:bg-red-50 focus-visible:ring-red-200",
-};
-
 export function Button({
   variant = "primary",
   busy = false,
@@ -53,7 +55,7 @@ export function Button({
     <button
       type={type}
       disabled={disabled || busy}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${BUTTON_VARIANT[variant]} ${className}`}
+      className={`${buttonClass(variant)} ${className}`}
       {...props}
     >
       {busy && <Spinner />}
@@ -72,10 +74,7 @@ export function ButtonLink({
   variant?: "primary" | "secondary";
 }) {
   return (
-    <Link
-      href={href}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition focus-visible:ring-2 focus-visible:outline-none ${BUTTON_VARIANT[variant]}`}
-    >
+    <Link href={href} className={buttonClass(variant)}>
       {children}
     </Link>
   );
@@ -87,30 +86,6 @@ export function Spinner() {
       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.3" strokeWidth="4" />
       <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" strokeWidth="4" />
     </svg>
-  );
-}
-
-export function Card({
-  title,
-  actions,
-  children,
-  className = "",
-}: {
-  title?: string;
-  actions?: ReactNode;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <section className={`rounded-xl border border-zinc-200 bg-white shadow-sm ${className}`}>
-      {(title || actions) && (
-        <div className="flex items-center justify-between gap-3 border-b border-zinc-100 px-5 py-3.5">
-          {title && <h2 className="text-sm font-semibold text-zinc-900">{title}</h2>}
-          {actions}
-        </div>
-      )}
-      <div className="p-5">{children}</div>
-    </section>
   );
 }
 
@@ -176,36 +151,6 @@ export function InvoiceStatusBadge({
     return <Badge className="bg-red-50 text-red-700 ring-red-200">Overdue</Badge>;
   }
   return <Badge className={INVOICE_BADGE[status]}>{INVOICE_STATUS_LABEL[status]}</Badge>;
-}
-
-export function Field({
-  label,
-  htmlFor,
-  error,
-  hint,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  error?: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div>
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-zinc-800">
-        {label}
-      </label>
-      <div className="mt-1.5">{children}</div>
-      {error ? (
-        <p id={`${htmlFor}-error`} className="mt-1.5 text-sm text-red-600">
-          {error}
-        </p>
-      ) : (
-        hint && <p className="mt-1.5 text-xs text-zinc-500">{hint}</p>
-      )}
-    </div>
-  );
 }
 
 export function TableShell({

@@ -26,6 +26,10 @@ export function customerName(customer: CustomerSummary): string {
 
 export type SubscriptionLine = {
   id: string;
+  /** The line priced from the subscription's admin plan (at most one per quotation). */
+  is_plan_line: boolean;
+  product_id: string | null;
+  variant_id: string | null;
   description: string;
   quantity: number;
   unit_price: Decimal;
@@ -48,6 +52,8 @@ export type SubscriptionSummary = {
   quotation_valid_until: string | null;
   /** Set when the customer declined the quotation (status is then CLOSED). */
   rejected_at: string | null;
+  /** The admin plan the quotation was made from, or null for a custom plan. */
+  plan_id: string | null;
   subtotal: Decimal;
   tax_total: Decimal;
   total: Decimal;
@@ -60,6 +66,8 @@ export type Subscription = SubscriptionSummary & {
   renewed_at: string | null;
   plan_rules: PlanRules | null;
   payment_terms_days: number;
+  /** Default validity used when the quotation is sent. */
+  quotation_validity_days: number;
   notes: string | null;
   quotation_sent_at: string | null;
   confirmed_at: string | null;
@@ -69,18 +77,34 @@ export type Subscription = SubscriptionSummary & {
   lines: SubscriptionLine[];
 };
 
+/**
+ * A quotation line as sent to the API. Three kinds:
+ * - plan line (`is_plan_line`): name and price come from the plan;
+ * - catalog line (`product_id`, optional `variant_id`): defaults come from the product;
+ * - free-text line: description and unit_price are required.
+ * A null tax_rate means "use the tax that applies" (product tax, then the default tax).
+ */
 export type SubscriptionLineInput = {
-  description: string;
+  is_plan_line?: boolean;
+  product_id?: string | null;
+  variant_id?: string | null;
+  description?: string | null;
   quantity: number;
-  unit_price: string;
-  tax_rate: string;
+  unit_price?: string | null;
+  tax_rate?: string | null;
 };
 
+/**
+ * Create body, also used for edits. On edit, leave `plan_id` out to keep the current
+ * plan, or send null to switch to a custom plan.
+ */
 export type SubscriptionInput = {
   customer_id: string;
-  plan_name: string;
-  billing_frequency: BillingFrequency;
+  plan_id?: string | null;
+  plan_name: string | null;
+  billing_frequency: BillingFrequency | null;
   payment_terms_days: number;
+  quotation_validity_days: number;
   expiry_date: string | null;
   notes: string | null;
   lines: SubscriptionLineInput[];
@@ -124,7 +148,7 @@ export type Invoice = InvoiceSummary & {
   paid_at: string | null;
   cancelled_at: string | null;
   created_at: string;
-  lines: Omit<SubscriptionLine, "id">[];
+  lines: Omit<SubscriptionLine, "id" | "is_plan_line" | "product_id" | "variant_id">[];
   payments: InvoicePayment[];
 };
 
@@ -289,6 +313,116 @@ export function customerOptions(search: string) {
   return apiRequest<CustomerSummary[]>(
     withQuery("/api/staff/subscriptions/customer-options", { search, limit: 20 }),
   );
+}
+
+// --- Catalog for the quotation form ---
+
+export type TaxRef = { id: string; name: string; rate: Decimal };
+
+/** An admin plan that can be offered today. */
+export type PlanOption = {
+  id: string;
+  name: string;
+  description: string | null;
+  price: Decimal;
+  billing_frequency: BillingFrequency;
+  minimum_quantity: number;
+  allow_pause: boolean;
+  allow_renewal: boolean;
+  allow_early_closure: boolean;
+  auto_close_on_expiry: boolean;
+  product_ids: string[];
+  /** The default tax, suggested for the plan line. */
+  tax: TaxRef | null;
+};
+
+export type ProductOption = {
+  id: string;
+  name: string;
+  product_type: string;
+  sales_price: Decimal;
+  description: string | null;
+  /** The tax that applies (product, then product type, then the default). */
+  tax: TaxRef | null;
+  variants: { id: string; name: string; additional_price: Decimal; final_price: Decimal }[];
+};
+
+export type TaxOption = TaxRef & { is_default: boolean };
+
+export function listPlanOptions() {
+  return apiRequest<PlanOption[]>("/api/staff/catalog/plans");
+}
+
+export function listProductOptions() {
+  return apiRequest<ProductOption[]>("/api/staff/catalog/products");
+}
+
+export function listTaxOptions() {
+  return apiRequest<TaxOption[]>("/api/staff/taxes");
+}
+
+// --- Quotation templates ---
+
+export type TemplateLine = Omit<SubscriptionLine, "subtotal" | "tax_amount">;
+
+export type QuotationTemplate = {
+  id: string;
+  name: string;
+  description: string | null;
+  plan_id: string | null;
+  plan_name: string;
+  billing_frequency: BillingFrequency;
+  validity_days: number;
+  payment_terms_days: number;
+  notes: string | null;
+  is_active: boolean;
+  total: Decimal;
+  lines: TemplateLine[];
+  updated_at: string;
+};
+
+export type TemplateInput = {
+  name: string;
+  description: string | null;
+  plan_id: string | null;
+  plan_name: string | null;
+  billing_frequency: BillingFrequency | null;
+  validity_days: number;
+  payment_terms_days: number;
+  notes: string | null;
+  is_active: boolean;
+  lines: SubscriptionLineInput[];
+};
+
+export function listTemplates(activeOnly = false) {
+  return apiRequest<QuotationTemplate[]>(
+    withQuery("/api/staff/quotation-templates", { active_only: activeOnly || undefined }),
+  );
+}
+
+export function getTemplate(id: string) {
+  return apiRequest<QuotationTemplate>(`/api/staff/quotation-templates/${encodeURIComponent(id)}`);
+}
+
+export function createTemplate(body: TemplateInput) {
+  return apiRequest<QuotationTemplate>("/api/staff/quotation-templates", {
+    method: "POST",
+    body,
+  });
+}
+
+/** Replaces the whole template. Quotations already made from it don't change. */
+export function updateTemplate(id: string, body: TemplateInput) {
+  return apiRequest<QuotationTemplate>(`/api/staff/quotation-templates/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body,
+  });
+}
+
+export function deleteTemplate(id: string) {
+  return apiRequest<void>(`/api/staff/quotation-templates/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 }
 
 // --- Invoices and billing ---

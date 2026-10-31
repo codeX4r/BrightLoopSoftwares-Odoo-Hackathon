@@ -2,102 +2,167 @@
 
 import { useEffect, useState } from "react";
 
-import { Alert, CustomerCell, Button, Card, Field, inputClass } from "@/components/staff/ui";
-import { FREQUENCY_LABEL, formatMoney } from "@/lib/format";
+import {
+  draftFromLine,
+  linesForPlan,
+  linesToInput,
+  LinesEditor,
+  PlanFields,
+  useQuotationCatalog,
+  validateLines,
+  withCurrentPlan,
+  type Catalog,
+  type Errors,
+  type LineDraft,
+  type PlanChoice,
+} from "@/components/staff/quotation-fields";
+import {
+  Alert,
+  CustomerCell,
+  Button,
+  Card,
+  Field,
+  inputClass,
+  LoadingRow,
+} from "@/components/staff/ui";
+import { formatMoney } from "@/lib/format";
 import {
   customerOptions,
   errorMessage,
+  listTemplates,
   type BillingFrequency,
   type CustomerSummary,
+  type QuotationTemplate,
   type Subscription,
   type SubscriptionInput,
 } from "@/lib/staff-api";
+import { useApiData } from "@/lib/use-api-data";
 
-const FREQUENCIES = Object.keys(FREQUENCY_LABEL) as BillingFrequency[];
-const MONEY_PATTERN = /^\d{1,10}(\.\d{1,2})?$/;
-
-type LineDraft = {
-  key: number;
-  description: string;
-  quantity: string;
-  unit_price: string;
-  tax_rate: string;
-};
-type Errors = Record<string, string>;
-
-let nextKey = 1;
-const blankLine = (): LineDraft => ({
-  key: nextKey++,
-  description: "",
-  quantity: "1",
-  unit_price: "",
-  tax_rate: "18",
-});
-
-/** Line totals in paise, to avoid floating-point drift in the preview. */
-function previewTotals(line: LineDraft) {
-  const qty = Number(line.quantity);
-  if (!Number.isInteger(qty) || qty < 1 || !MONEY_PATTERN.test(line.unit_price)) return null;
-  const unitPaise = Math.round(Number(line.unit_price) * 100);
-  const subtotal = qty * unitPaise;
-  const rate = Number(line.tax_rate);
-  const tax = Number.isFinite(rate) ? Math.round((subtotal * rate) / 100) : 0;
-  return { subtotal, tax, total: subtotal + tax };
-}
-
+/**
+ * Create or edit a draft quotation. New quotations can start from a template
+ * (`templateId` preselects one, e.g. from the templates screen).
+ */
 export function SubscriptionForm({
   initial,
+  templateId,
   submitLabel,
   onSubmit,
 }: {
   initial?: Subscription;
+  templateId?: string | null;
   submitLabel: string;
   onSubmit: (input: SubscriptionInput) => Promise<void>;
 }) {
+  const catalog = useQuotationCatalog();
+  const templates = useApiData(
+    () => (initial ? Promise.resolve([]) : listTemplates(true)),
+    [Boolean(initial)],
+  );
+
+  const error = catalog.error ?? templates.error;
+  if (error && (!catalog.data || !templates.data)) return <Alert>{error}</Alert>;
+  if (!catalog.data || !templates.data) return <LoadingRow />;
+
+  return (
+    <QuotationForm
+      catalog={catalog.data}
+      templates={templates.data}
+      initial={initial}
+      templateId={templateId ?? null}
+      submitLabel={submitLabel}
+      onSubmit={onSubmit}
+    />
+  );
+}
+
+function QuotationForm({
+  catalog,
+  templates,
+  initial,
+  templateId,
+  submitLabel,
+  onSubmit,
+}: {
+  catalog: Catalog;
+  templates: QuotationTemplate[];
+  initial?: Subscription;
+  templateId: string | null;
+  submitLabel: string;
+  onSubmit: (input: SubscriptionInput) => Promise<void>;
+}) {
+  const plans = withCurrentPlan(
+    catalog.plans,
+    initial
+      ? {
+          plan_id: initial.plan_id,
+          plan_name: initial.plan_name,
+          billing_frequency: initial.billing_frequency,
+          rules: initial.plan_rules,
+          planLinePrice: initial.lines.find((l) => l.is_plan_line)?.unit_price,
+        }
+      : null,
+  );
+
+  // A template passed in the link (e.g. "Use" on the templates screen) fills the form.
+  const linked = !initial && templateId ? templates.find((t) => t.id === templateId) : undefined;
+  const [start] = useState(() =>
+    linked ? valuesFromTemplate(linked, catalog) : valuesFromSubscription(initial),
+  );
+
   const [customer, setCustomer] = useState<CustomerSummary | null>(initial?.customer ?? null);
-  const [planName, setPlanName] = useState(initial?.plan_name ?? "");
-  const [frequency, setFrequency] = useState<BillingFrequency>(
-    initial?.billing_frequency ?? "MONTHLY",
-  );
-  const [paymentTerms, setPaymentTerms] = useState(String(initial?.payment_terms_days ?? 15));
+  const [chosenTemplate, setChosenTemplate] = useState(linked?.id ?? "");
+  const [templateNote, setTemplateNote] = useState<string | null>(start.note);
+  const [planId, setPlanId] = useState(start.planId);
+  const [planName, setPlanName] = useState(start.planName);
+  const [frequency, setFrequency] = useState<BillingFrequency>(start.frequency);
+  const [paymentTerms, setPaymentTerms] = useState(start.paymentTerms);
+  const [validityDays, setValidityDays] = useState(start.validityDays);
   const [expiryDate, setExpiryDate] = useState(initial?.expiry_date ?? "");
-  const [notes, setNotes] = useState(initial?.notes ?? "");
-  const [lines, setLines] = useState<LineDraft[]>(() =>
-    initial?.lines.length
-      ? initial.lines.map((l) => ({
-          key: nextKey++,
-          description: l.description,
-          quantity: String(l.quantity),
-          unit_price: l.unit_price,
-          tax_rate: l.tax_rate,
-        }))
-      : [blankLine()],
-  );
+  const [notes, setNotes] = useState(start.notes);
+  const [lines, setLines] = useState<LineDraft[]>(start.lines);
   const [errors, setErrors] = useState<Errors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  function updateLine(key: number, patch: Partial<LineDraft>) {
-    setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  const plan = plans.find((p) => p.id === planId) ?? null;
+
+  function changePlan(next: PlanChoice | null) {
+    setPlanId(next?.id ?? "");
+    if (!next && plan) {
+      // Keep the plan's name and billing as a starting point for the custom plan.
+      setPlanName(plan.name);
+      setFrequency(plan.billing_frequency);
+    }
+    setLines((prev) => linesForPlan(prev, next, catalog.taxes));
+  }
+
+  function applyTemplate(id: string) {
+    setChosenTemplate(id);
+    const template = templates.find((t) => t.id === id);
+    if (!template) return;
+    const values = valuesFromTemplate(template, catalog);
+    setTemplateNote(values.note);
+    setPlanId(values.planId);
+    setPlanName(values.planName);
+    setFrequency(values.frequency);
+    setPaymentTerms(values.paymentTerms);
+    setValidityDays(values.validityDays);
+    setNotes(values.notes);
+    setLines(values.lines);
+    setErrors({});
   }
 
   function validate(): Errors {
     const next: Errors = {};
     if (!customer) next.customer = "Choose a customer.";
-    if (!planName.trim()) next.plan = "Enter the plan name.";
+    if (!plan && !planName.trim()) next.plan = "Enter the plan name.";
     const terms = Number(paymentTerms);
     if (!Number.isInteger(terms) || terms < 0 || terms > 365)
       next.terms = "Use a whole number of days from 0 to 365.";
-    if (lines.length === 0) next.lines = "Add at least one line.";
-    lines.forEach((line) => {
-      if (!line.description.trim()) next[`desc-${line.key}`] = "Required";
-      const qty = Number(line.quantity);
-      if (!Number.isInteger(qty) || qty < 1) next[`qty-${line.key}`] = "Whole number, 1 or more";
-      if (!MONEY_PATTERN.test(line.unit_price)) next[`price-${line.key}`] = "e.g. 999 or 999.50";
-      const rate = Number(line.tax_rate);
-      if (line.tax_rate === "" || !Number.isFinite(rate) || rate < 0 || rate > 100)
-        next[`tax-${line.key}`] = "0 to 100";
-    });
+    const validity = Number(validityDays);
+    if (!Number.isInteger(validity) || validity < 1 || validity > 365)
+      next.validity = "Use a whole number of days from 1 to 365.";
+    validateLines(lines, plan, next);
     return next;
   }
 
@@ -109,72 +174,76 @@ export function SubscriptionForm({
     setFormError(null);
     if (Object.keys(found).length > 0 || !customer) return;
 
+    const input: SubscriptionInput = {
+      customer_id: customer.id,
+      plan_name: plan ? null : planName.trim(),
+      billing_frequency: plan ? null : frequency,
+      payment_terms_days: Number(paymentTerms),
+      quotation_validity_days: Number(validityDays),
+      expiry_date: expiryDate || null,
+      notes: notes.trim() || null,
+      lines: linesToInput(lines),
+    };
+    // On edit, an unchanged plan is left out so a plan the admin has since retired stays.
+    if (!initial || planId !== (initial.plan_id ?? "")) input.plan_id = planId || null;
+
     setSubmitting(true);
     try {
-      await onSubmit({
-        customer_id: customer.id,
-        plan_name: planName.trim(),
-        billing_frequency: frequency,
-        payment_terms_days: Number(paymentTerms),
-        expiry_date: expiryDate || null,
-        notes: notes.trim() || null,
-        lines: lines.map((l) => ({
-          description: l.description.trim(),
-          quantity: Number(l.quantity),
-          unit_price: l.unit_price,
-          tax_rate: l.tax_rate,
-        })),
-      });
+      await onSubmit(input);
     } catch (err) {
       setFormError(errorMessage(err));
       setSubmitting(false);
     }
   }
 
-  const totals = lines.reduce(
-    (acc, line) => {
-      const t = previewTotals(line);
-      return t
-        ? { subtotal: acc.subtotal + t.subtotal, tax: acc.tax + t.tax, total: acc.total + t.total }
-        : acc;
-    },
-    { subtotal: 0, tax: 0, total: 0 },
-  );
-
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-6">
       {formError && <Alert>{formError}</Alert>}
+
+      {!initial && templates.length > 0 && (
+        <Card title="Start from a template">
+          <Field
+            label="Template"
+            htmlFor="template"
+            hint="Fills in the plan, terms, notes and lines below. You can still change them."
+          >
+            <select
+              id="template"
+              value={chosenTemplate}
+              onChange={(e) => applyTemplate(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">No template</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} · {t.plan_name} · {formatMoney(t.total)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {templateNote && (
+            <div className="mt-3">
+              <Alert tone="info">{templateNote}</Alert>
+            </div>
+          )}
+        </Card>
+      )}
 
       <Card title="Customer and plan">
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <CustomerPicker value={customer} onChange={setCustomer} error={errors.customer} />
           </div>
-          <Field label="Plan name" htmlFor="plan" error={errors.plan}>
-            <input
-              id="plan"
-              value={planName}
-              maxLength={200}
-              placeholder="e.g. Enterprise Plan"
-              onChange={(e) => setPlanName(e.target.value)}
-              aria-invalid={Boolean(errors.plan)}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Billing frequency" htmlFor="frequency">
-            <select
-              id="frequency"
-              value={frequency}
-              onChange={(e) => setFrequency(e.target.value as BillingFrequency)}
-              className={inputClass}
-            >
-              {FREQUENCIES.map((f) => (
-                <option key={f} value={f}>
-                  {FREQUENCY_LABEL[f]}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <PlanFields
+            plans={plans}
+            planId={planId}
+            onPlanChange={changePlan}
+            planName={planName}
+            onPlanNameChange={setPlanName}
+            frequency={frequency}
+            onFrequencyChange={setFrequency}
+            error={errors.plan}
+          />
           <Field
             label="Payment terms (days)"
             htmlFor="terms"
@@ -189,6 +258,23 @@ export function SubscriptionForm({
               value={paymentTerms}
               onChange={(e) => setPaymentTerms(e.target.value)}
               aria-invalid={Boolean(errors.terms)}
+              className={inputClass}
+            />
+          </Field>
+          <Field
+            label="Quotation valid for (days)"
+            htmlFor="validity"
+            error={errors.validity}
+            hint="Counted from the day the quotation is sent."
+          >
+            <input
+              id="validity"
+              type="number"
+              min={1}
+              max={365}
+              value={validityDays}
+              onChange={(e) => setValidityDays(e.target.value)}
+              aria-invalid={Boolean(errors.validity)}
               className={inputClass}
             />
           </Field>
@@ -220,94 +306,14 @@ export function SubscriptionForm({
         </div>
       </Card>
 
-      <Card
-        title="Lines"
-        actions={
-          <Button variant="secondary" onClick={() => setLines((prev) => [...prev, blankLine()])}>
-            Add line
-          </Button>
-        }
-      >
-        <p className="mb-4 text-xs text-zinc-500">
-          Amounts are per billing cycle. Products, plans and taxes will be selectable once the admin
-          catalogue is available; for now enter them by hand.
-        </p>
-        {errors.lines && <p className="mb-3 text-sm text-red-600">{errors.lines}</p>}
-        <div className="space-y-3">
-          {lines.map((line, index) => {
-            const t = previewTotals(line);
-            return (
-              <fieldset
-                key={line.key}
-                className="grid grid-cols-2 gap-3 rounded-lg border border-zinc-200 p-3 sm:grid-cols-12"
-              >
-                <legend className="sr-only">Line {index + 1}</legend>
-                <LineInput
-                  className="col-span-2 sm:col-span-5"
-                  id={`desc-${line.key}`}
-                  label="Description"
-                  value={line.description}
-                  error={errors[`desc-${line.key}`]}
-                  onChange={(v) => updateLine(line.key, { description: v })}
-                />
-                <LineInput
-                  className="sm:col-span-2"
-                  id={`qty-${line.key}`}
-                  label="Qty"
-                  inputMode="numeric"
-                  value={line.quantity}
-                  error={errors[`qty-${line.key}`]}
-                  onChange={(v) => updateLine(line.key, { quantity: v })}
-                />
-                <LineInput
-                  className="sm:col-span-2"
-                  id={`price-${line.key}`}
-                  label="Unit price (₹)"
-                  inputMode="decimal"
-                  value={line.unit_price}
-                  error={errors[`price-${line.key}`]}
-                  onChange={(v) => updateLine(line.key, { unit_price: v })}
-                />
-                <LineInput
-                  className="sm:col-span-1"
-                  id={`tax-${line.key}`}
-                  label="Tax %"
-                  inputMode="decimal"
-                  value={line.tax_rate}
-                  error={errors[`tax-${line.key}`]}
-                  onChange={(v) => updateLine(line.key, { tax_rate: v })}
-                />
-                <div className="flex items-end justify-between gap-2 sm:col-span-2 sm:flex-col sm:items-end">
-                  <p className="text-sm font-medium text-zinc-900">
-                    {t ? formatMoney(t.total / 100) : "—"}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setLines((prev) => prev.filter((l) => l.key !== line.key))}
-                    className="text-xs font-medium text-red-600 hover:text-red-500"
-                    aria-label={`Remove line ${index + 1}`}
-                  >
-                    Remove
-                  </button>
-                </div>
-              </fieldset>
-            );
-          })}
-        </div>
-        <dl className="mt-5 ml-auto max-w-xs space-y-1 text-sm">
-          <div className="flex justify-between text-zinc-600">
-            <dt>Subtotal</dt>
-            <dd>{formatMoney(totals.subtotal / 100)}</dd>
-          </div>
-          <div className="flex justify-between text-zinc-600">
-            <dt>Tax</dt>
-            <dd>{formatMoney(totals.tax / 100)}</dd>
-          </div>
-          <div className="flex justify-between border-t border-zinc-200 pt-1 font-semibold text-zinc-900">
-            <dt>Total per cycle</dt>
-            <dd>{formatMoney(totals.total / 100)}</dd>
-          </div>
-        </dl>
+      <Card title="Lines">
+        <LinesEditor
+          lines={lines}
+          setLines={setLines}
+          plan={plan}
+          catalog={catalog}
+          errors={errors}
+        />
       </Card>
 
       <div className="flex justify-end">
@@ -319,44 +325,51 @@ export function SubscriptionForm({
   );
 }
 
-function LineInput({
-  id,
-  label,
-  value,
-  error,
-  onChange,
-  className,
-  inputMode,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  error?: string;
-  onChange: (value: string) => void;
-  className?: string;
-  inputMode?: "numeric" | "decimal";
-}) {
-  return (
-    <div className={className}>
-      <label htmlFor={id} className="block text-xs font-medium text-zinc-600">
-        {label}
-      </label>
-      <input
-        id={id}
-        value={value}
-        inputMode={inputMode}
-        onChange={(e) => onChange(e.target.value)}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? `${id}-error` : undefined}
-        className={`mt-1 ${inputClass}`}
-      />
-      {error && (
-        <p id={`${id}-error`} className="mt-1 text-xs text-red-600">
-          {error}
-        </p>
-      )}
-    </div>
-  );
+type StartValues = {
+  planId: string;
+  planName: string;
+  frequency: BillingFrequency;
+  paymentTerms: string;
+  validityDays: string;
+  notes: string;
+  lines: LineDraft[];
+  note: string | null;
+};
+
+function valuesFromSubscription(sub: Subscription | undefined): StartValues {
+  return {
+    planId: sub?.plan_id ?? "",
+    planName: sub?.plan_name ?? "",
+    frequency: sub?.billing_frequency ?? "MONTHLY",
+    paymentTerms: String(sub?.payment_terms_days ?? 15),
+    validityDays: String(sub?.quotation_validity_days ?? 15),
+    notes: sub?.notes ?? "",
+    lines: sub?.lines.map(draftFromLine) ?? [],
+    note: null,
+  };
+}
+
+function valuesFromTemplate(template: QuotationTemplate, catalog: Catalog): StartValues {
+  const plan = template.plan_id
+    ? (catalog.plans.find((p) => p.id === template.plan_id) ?? null)
+    : null;
+  let lines = template.lines.map(draftFromLine);
+  let note: string | null = null;
+  if (template.plan_id && !plan) {
+    // The plan isn't offered today, so the quotation uses the template's plan as custom.
+    lines = linesForPlan(lines, null, catalog.taxes);
+    note = `The template's plan "${template.plan_name}" isn't offered today, so it was added as a custom plan.`;
+  }
+  return {
+    planId: plan?.id ?? "",
+    planName: template.plan_name,
+    frequency: template.billing_frequency,
+    paymentTerms: String(template.payment_terms_days),
+    validityDays: String(template.validity_days),
+    notes: template.notes ?? "",
+    lines,
+    note,
+  };
 }
 
 function CustomerPicker({
@@ -418,13 +431,13 @@ function CustomerPicker({
       label="Customer"
       htmlFor="customer-search"
       error={error ?? loadError ?? undefined}
-      hint="Active customer accounts. Search by email."
+      hint="Active customer accounts. Search by name, company or email."
     >
       <input
         id="customer-search"
         type="search"
         value={search}
-        placeholder="Search customer email"
+        placeholder="Search customers"
         onChange={(e) => setSearch(e.target.value)}
         aria-invalid={Boolean(error)}
         className={inputClass}

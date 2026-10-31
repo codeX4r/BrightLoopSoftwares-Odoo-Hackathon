@@ -1,5 +1,9 @@
+"use client";
+
 import { BrandLogo } from "@/components/brand-logo";
+import { CompanyDetails } from "@/components/company-details";
 import { BillTo } from "@/components/staff/ui";
+import { useCompany } from "@/lib/company";
 import { formatDate, formatMoney, FREQUENCY_LABEL } from "@/lib/format";
 import type { BillingFrequency, Subscription } from "@/lib/staff-api";
 
@@ -15,13 +19,14 @@ const CYCLE_LABEL: Record<BillingFrequency, string> = {
  * printing, so "Print / save PDF" produces a clean document.
  */
 export function QuotationDocument({ sub }: { sub: Subscription }) {
+  const company = useCompany();
   const isOffer = sub.status === "DRAFT" || sub.status === "QUOTATION";
   return (
     <article className="hidden text-zinc-900 print:block">
       <header className="flex items-start justify-between gap-6 border-b border-zinc-300 pb-6">
         <div>
           <BrandLogo />
-          <p className="mt-3 text-sm text-zinc-600">Brightloop Software</p>
+          <CompanyDetails />
         </div>
         <div className="text-right">
           <p className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
@@ -124,7 +129,7 @@ export function QuotationDocument({ sub }: { sub: Subscription }) {
 
       {isOffer && (
         <p className="mt-10 border-t border-zinc-200 pt-4 text-xs text-zinc-500">
-          This quotation can be accepted from your Brightloop customer portal
+          This quotation can be accepted from your {company.name} customer portal
           {sub.quotation_valid_until ? ` until ${formatDate(sub.quotation_valid_until)}` : ""}.
           Prices are in Indian rupees.
         </p>

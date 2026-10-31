@@ -21,6 +21,7 @@ import {
 } from "@/components/staff/ui";
 import { formatDate, formatDateTime, formatMoney, FREQUENCY_LABEL, todayIso } from "@/lib/format";
 import {
+  createTemplate,
   customerName,
   errorMessage,
   getSubscription,
@@ -37,6 +38,7 @@ export default function SubscriptionDetailPage() {
   const subscription = useApiData(() => getSubscription(id), [id]);
   const invoices = useApiData(() => listInvoices({ subscription_id: id }), [id]);
   const [editing, setEditing] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
   const [override, setOverride] = useState<Subscription | null>(null);
 
   // Show the latest server response after an action without waiting for a refetch.
@@ -63,6 +65,11 @@ export default function SubscriptionDetailPage() {
           actions={
             <>
               <SubscriptionStatusBadge status={sub.status} />
+              {!editing && sub.lines.length > 0 && !savingTemplate && (
+                <Button variant="secondary" onClick={() => setSavingTemplate(true)}>
+                  Save as template
+                </Button>
+              )}
               {!editing && sub.lines.length > 0 && (
                 <Button variant="secondary" onClick={() => window.print()}>
                   {sub.status === "DRAFT" || sub.status === "QUOTATION"
@@ -73,6 +80,10 @@ export default function SubscriptionDetailPage() {
             </>
           }
         />
+
+        {savingTemplate && !editing && (
+          <SaveAsTemplate sub={sub} onClose={() => setSavingTemplate(false)} />
+        )}
 
         {editing ? (
           <SubscriptionForm
@@ -215,6 +226,99 @@ export default function SubscriptionDetailPage() {
   );
 }
 
+/** Saves this quotation's plan, terms, notes and lines as a reusable template. */
+function SaveAsTemplate({ sub, onClose }: { sub: Subscription; onClose: () => void }) {
+  const [name, setName] = useState(sub.plan_name);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState<{ id: string; name: string } | null>(null);
+
+  async function save(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!name.trim() || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const template = await createTemplate({
+        name: name.trim(),
+        description: null,
+        plan_id: sub.plan_id,
+        plan_name: sub.plan_name,
+        billing_frequency: sub.billing_frequency,
+        validity_days: sub.quotation_validity_days,
+        payment_terms_days: sub.payment_terms_days,
+        notes: sub.notes,
+        is_active: true,
+        lines: sub.lines.map((l) =>
+          l.is_plan_line
+            ? { is_plan_line: true, quantity: l.quantity, tax_rate: l.tax_rate }
+            : {
+                product_id: l.product_id,
+                variant_id: l.variant_id,
+                description: l.description,
+                quantity: l.quantity,
+                unit_price: l.unit_price,
+                tax_rate: l.tax_rate,
+              },
+        ),
+      });
+      setSaved({ id: template.id, name: template.name });
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (saved) {
+    return (
+      <Alert tone="success">
+        Saved as the template{" "}
+        <Link href={`/staff/templates/${saved.id}`} className="font-semibold underline">
+          {saved.name}
+        </Link>
+        .{" "}
+        <button type="button" onClick={onClose} className="font-semibold underline">
+          Close
+        </button>
+      </Alert>
+    );
+  }
+
+  return (
+    <Card title="Save as template">
+      <form onSubmit={save} className="flex flex-wrap items-end gap-3">
+        <div className="w-full sm:w-80">
+          <label htmlFor="template-name" className="block text-xs font-medium text-zinc-600">
+            Template name
+          </label>
+          <input
+            id="template-name"
+            value={name}
+            maxLength={200}
+            onChange={(e) => setName(e.target.value)}
+            className={`mt-1 ${inputClass}`}
+          />
+        </div>
+        <Button type="submit" busy={busy} disabled={!name.trim()}>
+          Save template
+        </Button>
+        <Button variant="secondary" onClick={onClose}>
+          Cancel
+        </Button>
+        <p className="w-full text-xs text-zinc-500">
+          Copies the plan, payment terms, validity, notes and lines. The customer isn&apos;t saved.
+        </p>
+        {error && (
+          <div className="w-full">
+            <Alert>{error}</Alert>
+          </div>
+        )}
+      </form>
+    </Card>
+  );
+}
+
 function LifecycleActions({
   sub,
   onUpdated,
@@ -226,7 +330,7 @@ function LifecycleActions({
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [validDays, setValidDays] = useState("15");
+  const [validDays, setValidDays] = useState(String(sub.quotation_validity_days));
   const [startDate, setStartDate] = useState(todayIso());
   const [confirmClose, setConfirmClose] = useState(false);
 
