@@ -1,11 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { BrandLogo } from "@/components/brand-logo";
-import { ApiError } from "@/lib/api";
-import { getCurrentUser, logout, ROLE_HOME, type CurrentUser, type Role } from "@/lib/auth";
+import { type CurrentUser, type Role, logout } from "@/lib/auth";
+import { useRequireRole } from "@/lib/use-require-role";
 
 type RoleGuardProps = {
   role: Role;
@@ -15,38 +15,13 @@ type RoleGuardProps = {
 };
 
 /**
- * Client-side gate for role-specific areas. It only decides what UI to show; the backend
- * enforces access on every API call regardless of what the browser does.
+ * Page-level gate for the staff and customer areas. The admin area uses its own shell
+ * with the same role check from useRequireRole.
  */
 export function RoleGuard({ role, title, children }: RoleGuardProps) {
   const router = useRouter();
-  const [user, setUser] = useState<CurrentUser | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const state = useRequireRole(role);
   const [signingOut, setSigningOut] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    getCurrentUser()
-      .then((me) => {
-        if (cancelled) return;
-        if (me.role !== role) {
-          router.replace(ROLE_HOME[me.role]);
-          return;
-        }
-        setUser(me);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        if (err instanceof ApiError && err.status === 401) {
-          router.replace("/login");
-          return;
-        }
-        setError("We couldn't load your account. Please refresh the page.");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [role, router]);
 
   async function handleLogout() {
     setSigningOut(true);
@@ -55,17 +30,17 @@ export function RoleGuard({ role, title, children }: RoleGuardProps) {
     router.replace("/login");
   }
 
-  if (error) {
+  if (state.status === "error") {
     return (
       <main className="flex min-h-screen items-center justify-center bg-zinc-50 p-6 font-sans">
         <p role="alert" className="text-sm text-red-700">
-          {error}
+          {state.message}
         </p>
       </main>
     );
   }
 
-  if (!user) {
+  if (state.status === "loading") {
     return (
       <main className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans">
         <p className="text-sm text-zinc-500" aria-live="polite">
@@ -75,6 +50,7 @@ export function RoleGuard({ role, title, children }: RoleGuardProps) {
     );
   }
 
+  const user = state.user;
   return (
     <div className="min-h-screen bg-zinc-50 font-sans">
       <header className="border-b border-zinc-200 bg-white print:hidden">
