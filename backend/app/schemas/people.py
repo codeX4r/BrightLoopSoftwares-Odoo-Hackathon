@@ -7,6 +7,7 @@ from decimal import Decimal
 from pydantic import BaseModel, EmailStr
 
 from app.models.payment import Payment, PaymentMethod
+from app.models.profiles import CustomerProfile, StaffProfile
 from app.models.user import User, UserRole
 from app.services.people_service import CustomerFigures, StaffFigures
 
@@ -39,10 +40,15 @@ class AccountRead(BaseModel):
 
 class CustomerRow(AccountRead):
     figures: CustomerFiguresRead
+    # From the customer profile; None when no profile has been filled in.
+    full_name: str | None = None
+    company_name: str | None = None
 
 
 class StaffRow(AccountRead):
     figures: StaffFiguresRead
+    full_name: str | None = None
+    phone: str | None = None
 
 
 class PaymentBrief(BaseModel):
@@ -74,14 +80,26 @@ def _account(user: User) -> dict:
     }
 
 
-def customer_row(user: User, figures: CustomerFigures) -> CustomerRow:
+def customer_row(
+    user: User, figures: CustomerFigures, profile: CustomerProfile | None = None
+) -> CustomerRow:
     return CustomerRow(
-        **_account(user), figures=CustomerFiguresRead(**figures.__dict__)
+        **_account(user),
+        figures=CustomerFiguresRead(**figures.__dict__),
+        full_name=profile.full_name if profile else None,
+        company_name=profile.company_name if profile else None,
     )
 
 
-def staff_row(user: User, figures: StaffFigures) -> StaffRow:
-    return StaffRow(**_account(user), figures=StaffFiguresRead(**figures.__dict__))
+def staff_row(
+    user: User, figures: StaffFigures, profile: StaffProfile | None = None
+) -> StaffRow:
+    return StaffRow(
+        **_account(user),
+        figures=StaffFiguresRead(**figures.__dict__),
+        full_name=profile.full_name if profile else None,
+        phone=profile.phone if profile else None,
+    )
 
 
 def payment_brief(payment: Payment) -> PaymentBrief:

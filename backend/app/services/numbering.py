@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.number_sequence import NumberSequence
+from app.models.settings import AppSettings
 
 SUBSCRIPTION_SEQUENCE = ("subscription", "SUB")
 INVOICE_SEQUENCE = ("invoice", "INV")
@@ -15,6 +16,12 @@ def next_number(db: Session, sequence: tuple[str, str]) -> str:
     number back.
     """
     name, prefix = sequence
+    if name == INVOICE_SEQUENCE[0]:
+        # Admin-configurable prefix (Settings). Defaults to "INV"; the counter is shared,
+        # so a new prefix never collides with existing numbers, which stay unchanged.
+        settings_row = db.get(AppSettings, 1)
+        if settings_row is not None and settings_row.invoice_prefix:
+            prefix = settings_row.invoice_prefix
     row = db.scalar(
         select(NumberSequence).where(NumberSequence.name == name).with_for_update()
     )

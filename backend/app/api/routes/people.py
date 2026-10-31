@@ -28,7 +28,7 @@ from app.schemas.people import (
     staff_row,
 )
 from app.schemas.user import UserCreate
-from app.services import clock, people_service, user_service
+from app.services import clock, people_service, profile_service, user_service
 
 router = APIRouter(
     prefix="/api/admin",
@@ -59,8 +59,9 @@ def list_customers(
     figures = people_service.customer_figures(
         db, [u.id for u in page.items], clock.today()
     )
+    profiles = profile_service.customer_profiles(db, [u.id for u in page.items])
     return Page[CustomerRow](
-        items=[customer_row(u, figures[u.id]) for u in page.items],
+        items=[customer_row(u, figures[u.id], profiles.get(u.id)) for u in page.items],
         total=page.total,
         limit=limit,
         offset=offset,
@@ -88,7 +89,8 @@ def create_customer(payload: UserCreate, db: DbSession) -> CustomerRow:
 @router.get("/customers/{customer_id}", response_model=CustomerDetailRead)
 def get_customer(customer_id: uuid.UUID, db: DbSession) -> CustomerDetailRead:
     detail = people_service.get_customer_detail(db, customer_id, clock.today())
-    row = customer_row(detail.user, detail.figures)
+    profiles = profile_service.customer_profiles(db, [detail.user.id])
+    row = customer_row(detail.user, detail.figures, profiles.get(detail.user.id))
     return CustomerDetailRead(
         **row.model_dump(),
         recent_payments=[payment_brief(p) for p in detail.recent_payments],
@@ -111,8 +113,9 @@ def list_staff(
         db, q=q, is_active=is_active, limit=limit, offset=offset
     )
     figures = people_service.staff_figures(db, [u.id for u in page.items])
+    profiles = profile_service.staff_profiles(db, [u.id for u in page.items])
     return Page[StaffRow](
-        items=[staff_row(u, figures[u.id]) for u in page.items],
+        items=[staff_row(u, figures[u.id], profiles.get(u.id)) for u in page.items],
         total=page.total,
         limit=limit,
         offset=offset,
@@ -122,7 +125,8 @@ def list_staff(
 @router.get("/staff/{staff_id}", response_model=StaffDetailRead)
 def get_staff(staff_id: uuid.UUID, db: DbSession) -> StaffDetailRead:
     detail = people_service.get_staff_detail(db, staff_id)
-    row = staff_row(detail.user, detail.figures)
+    profiles = profile_service.staff_profiles(db, [detail.user.id])
+    row = staff_row(detail.user, detail.figures, profiles.get(detail.user.id))
     return StaffDetailRead(
         **row.model_dump(),
         recent_payments=[payment_brief(p) for p in detail.recent_payments],

@@ -11,11 +11,12 @@ from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.invoice import Invoice, InvoiceStatus
 from app.models.payment import Payment
+from app.models.profiles import CustomerProfile, StaffProfile
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.user import User, UserRole
 from app.services.errors import NotFoundError
@@ -76,7 +77,25 @@ def _list_accounts(
 ) -> AccountPage:
     query = select(User).where(User.role == role)
     if q:
-        query = query.where(User.email.ilike(f"%{q.strip()}%"))
+        pattern = f"%{q.strip()}%"
+        if role == UserRole.CUSTOMER:
+            query = query.outerjoin(
+                CustomerProfile, CustomerProfile.user_id == User.id
+            ).where(
+                or_(
+                    User.email.ilike(pattern),
+                    CustomerProfile.full_name.ilike(pattern),
+                    CustomerProfile.company_name.ilike(pattern),
+                )
+            )
+        elif role == UserRole.STAFF:
+            query = query.outerjoin(
+                StaffProfile, StaffProfile.user_id == User.id
+            ).where(
+                or_(User.email.ilike(pattern), StaffProfile.full_name.ilike(pattern))
+            )
+        else:
+            query = query.where(User.email.ilike(pattern))
     if is_active is not None:
         query = query.where(User.is_active.is_(is_active))
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
