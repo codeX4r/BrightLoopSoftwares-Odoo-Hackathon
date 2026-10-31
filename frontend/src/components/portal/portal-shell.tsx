@@ -2,8 +2,9 @@
 
 import { createContext, useContext } from "react";
 
+import { AppShell } from "@/components/app/app-shell";
+import { PORTAL_GROUPS } from "@/components/app/nav-config";
 import { RoleGuard } from "@/components/auth/role-guard";
-import { PortalNav } from "@/components/portal/portal-nav";
 import type { CurrentUser } from "@/lib/auth";
 
 const PortalUserContext = createContext<CurrentUser | null>(null);
@@ -21,12 +22,9 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     <RoleGuard role="CUSTOMER">
       {(user) => (
         <PortalUserContext.Provider value={user}>
-          <div className="flex flex-col gap-8 lg:flex-row">
-            <aside className="lg:w-56 lg:shrink-0 print:hidden">
-              <PortalNav />
-            </aside>
-            <div className="min-w-0 flex-1">{children}</div>
-          </div>
+          <AppShell user={user} groups={PORTAL_GROUPS}>
+            {children}
+          </AppShell>
         </PortalUserContext.Provider>
       )}
     </RoleGuard>

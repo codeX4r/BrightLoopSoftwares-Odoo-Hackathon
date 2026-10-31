@@ -39,7 +39,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
   return (
     <div
       role="alert"
-      className="flex flex-col items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-5"
+      className="flex flex-col items-start gap-3 rounded-[14px] border border-red-200 bg-red-50 p-5"
     >
       <p className="text-sm text-red-700">{message}</p>
       {onRetry && (
@@ -61,8 +61,8 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
-      <p className="text-base font-semibold text-zinc-900">{title}</p>
+    <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-black/15 bg-white/60 px-6 py-16 text-center">
+      <p className="text-[18px] font-medium tracking-[-0.01em] text-ink">{title}</p>
       <p className="mt-1 max-w-sm text-sm text-zinc-500">{description}</p>
       {action && <div className="mt-5">{action}</div>}
     </div>
@@ -134,19 +134,19 @@ export function Modal({
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-[2px]">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-xl bg-white shadow-xl"
+        className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-[20px] bg-white shadow-[0_0_0_1px_rgb(0_0_0/0.06),0_24px_60px_-12px_rgb(0_0_0/0.3)]"
       >
         <div className="border-b border-zinc-200 px-6 py-4">
-          <h2 id="modal-title" className="text-base font-semibold text-zinc-900">
+          <h2 id="modal-title" className="text-[17px] font-medium text-ink">
             {title}
           </h2>
         </div>
-        <div className="overflow-y-auto px-6 py-5">{children}</div>
+        <div className="overflow-y-auto px-6 py-5 [overscroll-behavior:contain]">{children}</div>
         {footer && (
           <div className="flex justify-end gap-3 border-t border-zinc-200 px-6 py-4">{footer}</div>
         )}
@@ -204,10 +204,12 @@ export function ToastStack({ toasts }: { toasts: Toast[] }) {
         <div
           key={t.id}
           role="status"
-          className={`pointer-events-auto rounded-lg px-4 py-3 text-sm shadow-lg ${
-            t.tone === "success" ? "bg-emerald-600 text-white" : "bg-red-600 text-white"
-          }`}
+          className="pointer-events-auto flex items-center gap-2.5 rounded-[14px] bg-ink px-4 py-3 text-[14px] text-white shadow-[0_12px_32px_-8px_rgb(0_0_0/0.35)]"
         >
+          <span
+            aria-hidden="true"
+            className={`size-2 shrink-0 rounded-full ${t.tone === "success" ? "bg-emerald-400" : "bg-red-400"}`}
+          />
           {t.message}
         </div>
       ))}

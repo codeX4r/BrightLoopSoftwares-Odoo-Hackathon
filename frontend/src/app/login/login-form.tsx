@@ -1,34 +1,55 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 
+import {
+  authInput,
+  authInputState,
+  authSubmit,
+  EyeToggle,
+  FormError,
+  Spinner,
+} from "@/components/auth/auth-frame";
+import { RoleSwitch } from "@/components/auth/role-switch";
 import { ApiError } from "@/lib/api";
 import { getCurrentUser, login, ROLE_HOME, type Role } from "@/lib/auth";
 
 type FieldErrors = { role?: string; email?: string; password?: string };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const LAST_ROLE_KEY = "brightloop:last-role";
 
-const ROLE_OPTIONS: { value: Role; label: string }[] = [
-  { value: "ADMIN", label: "Admin" },
-  { value: "STAFF", label: "Staff" },
-  { value: "CUSTOMER", label: "Customer" },
-];
+const ROLE_HINT: Record<Role, string> = {
+  CUSTOMER: "See your subscriptions, quotations and invoices.",
+  STAFF: "Manage customers, quotations, invoices and payments.",
+  ADMIN: "Set up the catalog, taxes, discounts, staff and reports.",
+};
+
+/** Seeded local accounts from the readme. Shown only in development builds. */
+const DEMO_ACCOUNTS: { role: Role; email: string; password: string }[] =
+  process.env.NODE_ENV === "development"
+    ? [
+        { role: "CUSTOMER", email: "customer@brightloop.com", password: "Customer@123" },
+        { role: "STAFF", email: "staff@brightloop.com", password: "Staff@123456" },
+        { role: "ADMIN", email: "admin@brightloop.com", password: "Admin@123456" },
+      ]
+    : [];
 
 function validate(role: Role | "", email: string, password: string): FieldErrors {
   const errors: FieldErrors = {};
-  if (!role) errors.role = "Select your role.";
-  if (!email.trim()) errors.email = "Email is required.";
+  if (!role) errors.role = "Choose how you use Brightloop.";
+  if (!email.trim()) errors.email = "Enter your email.";
   else if (!EMAIL_PATTERN.test(email.trim())) errors.email = "Enter a valid email address.";
-  if (!password) errors.password = "Password is required.";
+  if (!password) errors.password = "Enter your password.";
   else if (password.length > 128) errors.password = "Password is too long.";
   return errors;
 }
 
 function loginErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.status === 401) return "Invalid email, password or role.";
+    if (error.status === 401)
+      return "That email, password and role don't match. Check that the right role is selected.";
     if (error.status === 429) {
       const minutes = error.retryAfterSeconds ? Math.ceil(error.retryAfterSeconds / 60) : null;
       return minutes
@@ -36,9 +57,18 @@ function loginErrorMessage(error: unknown): string {
         : "Too many failed attempts. Try again later.";
     }
     if (error.status === 422) return "Check your email and password and try again.";
-    return "Something went wrong. Please try again.";
+    return "Something went wrong on our side. Try again in a moment.";
   }
-  return "Unable to reach the server. Check your connection and try again.";
+  return "Can't reach the server. Check your connection and try again.";
+}
+
+function readLastRole(): Role | "" {
+  try {
+    const saved = window.localStorage.getItem(LAST_ROLE_KEY);
+    return saved === "ADMIN" || saved === "STAFF" || saved === "CUSTOMER" ? saved : "";
+  } catch {
+    return "";
+  }
 }
 
 export function LoginForm() {
@@ -47,11 +77,13 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Already signed in? Send the user to their home page.
+  // Already signed in? Go straight to the right home page. Otherwise preselect the role
+  // used last time on this device, so returning users only type their password.
   useEffect(() => {
     let cancelled = false;
     getCurrentUser()
@@ -59,12 +91,21 @@ export function LoginForm() {
         if (!cancelled) router.replace(ROLE_HOME[user.role]);
       })
       .catch(() => {
-        // Not signed in; stay on the login page.
+        if (!cancelled) setRole((current) => current || readLastRole());
       });
     return () => {
       cancelled = true;
     };
   }, [router]);
+
+  function chooseRole(next: Role) {
+    setRole(next);
+    setFieldErrors((e) => ({ ...e, role: undefined }));
+  }
+
+  function trackCapsLock(event: KeyboardEvent<HTMLInputElement>) {
+    setCapsLock(event.getModifierState("CapsLock"));
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -73,85 +114,56 @@ export function LoginForm() {
     const errors = validate(role, email, password);
     setFieldErrors(errors);
     setFormError(null);
-    if (!role || errors.email || errors.password) return;
+    if (!role || errors.email || errors.password) {
+      const first = errors.role ? null : errors.email ? "email" : "password";
+      if (first) document.getElementById(first)?.focus();
+      return;
+    }
 
     setSubmitting(true);
     try {
       // The backend checks the selected role against the account and returns the real
-      // role from the database; redirect on that, not on the dropdown value.
+      // role from the database; redirect on that, not on the selected value.
       const accountRole = await login(email.trim(), password, role);
+      try {
+        window.localStorage.setItem(LAST_ROLE_KEY, accountRole);
+      } catch {
+        // Storage can be blocked; remembering the role is only a convenience.
+      }
       router.replace(ROLE_HOME[accountRole]);
     } catch (error) {
       setFormError(loginErrorMessage(error));
       setPassword("");
       setSubmitting(false);
+      document.getElementById("password")?.focus();
     }
   }
 
-  const inputBase =
-    "block w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm text-zinc-900 shadow-sm placeholder:text-zinc-400 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-zinc-100";
-  const inputState = (hasError: boolean) =>
-    hasError
-      ? "border-red-400 focus:border-red-500 focus:ring-red-200"
-      : "border-zinc-300 focus:border-indigo-500 focus:ring-indigo-200";
-
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5">
-      {formError && (
-        <div
-          role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
-          {formError}
-        </div>
-      )}
+      {formError && <FormError>{formError}</FormError>}
 
       <div>
-        <label htmlFor="role" className="block text-sm font-medium text-zinc-800">
-          Login as
-        </label>
-        <div className="relative mt-1.5">
-          <select
-            id="role"
-            name="role"
-            value={role}
-            onChange={(e) => setRole(e.target.value as Role | "")}
-            disabled={submitting}
-            aria-invalid={Boolean(fieldErrors.role)}
-            aria-describedby={fieldErrors.role ? "role-error" : undefined}
-            className={`appearance-none pr-10 ${inputBase} ${inputState(Boolean(fieldErrors.role))} ${role ? "" : "text-zinc-400"}`}
-          >
-            <option value="" disabled>
-              Select your role
-            </option>
-            {ROLE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value} className="text-zinc-900">
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <svg
-            className="pointer-events-none absolute inset-y-0 right-3 my-auto h-5 w-5 text-zinc-500"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              fillRule="evenodd"
-              d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </div>
-        {fieldErrors.role && (
-          <p id="role-error" className="mt-1.5 text-sm text-red-600">
-            {fieldErrors.role}
-          </p>
-        )}
+        <p id="role-label" className="mb-2 text-[14px] font-medium">
+          I&rsquo;m logging in as
+        </p>
+        <RoleSwitch
+          value={role}
+          onChange={chooseRole}
+          disabled={submitting}
+          invalid={Boolean(fieldErrors.role)}
+          describedBy="role-help"
+        />
+        <p
+          id="role-help"
+          className={`mt-2 text-[13px] ${fieldErrors.role ? "text-red-600" : "text-muted"}`}
+        >
+          {fieldErrors.role ?? (role ? ROLE_HINT[role] : "Staff and admin accounts come from your admin.")}
+        </p>
       </div>
 
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-zinc-800">
+        <label htmlFor="email" className="mb-2 block text-[14px] font-medium">
           Email
         </label>
         <input
@@ -160,106 +172,90 @@ export function LoginForm() {
           type="email"
           autoComplete="email"
           inputMode="email"
+          autoFocus
           placeholder="you@company.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={submitting}
           aria-invalid={Boolean(fieldErrors.email)}
           aria-describedby={fieldErrors.email ? "email-error" : undefined}
-          className={`mt-1.5 ${inputBase} ${inputState(Boolean(fieldErrors.email))}`}
+          className={`${authInput} ${authInputState(Boolean(fieldErrors.email))}`}
         />
         {fieldErrors.email && (
-          <p id="email-error" className="mt-1.5 text-sm text-red-600">
+          <p id="email-error" className="mt-2 text-[13px] text-red-600">
             {fieldErrors.email}
           </p>
         )}
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-zinc-800">
+        <label htmlFor="password" className="mb-2 block text-[14px] font-medium">
           Password
         </label>
-        <div className="relative mt-1.5">
+        <div className="relative">
           <input
             id="password"
             name="password"
             type={showPassword ? "text" : "password"}
             autoComplete="current-password"
-            placeholder="Enter your password"
+            placeholder="Your password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={trackCapsLock}
+            onKeyUp={trackCapsLock}
+            onBlur={() => setCapsLock(false)}
             disabled={submitting}
             aria-invalid={Boolean(fieldErrors.password)}
-            aria-describedby={fieldErrors.password ? "password-error" : undefined}
-            className={`pr-11 ${inputBase} ${inputState(Boolean(fieldErrors.password))}`}
+            aria-describedby={
+              [fieldErrors.password && "password-error", capsLock && "caps-hint"]
+                .filter(Boolean)
+                .join(" ") || undefined
+            }
+            className={`pr-12 ${authInput} ${authInputState(Boolean(fieldErrors.password))}`}
           />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            aria-label={showPassword ? "Hide password" : "Show password"}
-            aria-pressed={showPassword}
-            className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-lg text-zinc-500 hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:outline-none"
-          >
-            {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-          </button>
+          <EyeToggle shown={showPassword} onToggle={() => setShowPassword((v) => !v)} />
         </div>
         {fieldErrors.password && (
-          <p id="password-error" className="mt-1.5 text-sm text-red-600">
+          <p id="password-error" className="mt-2 text-[13px] text-red-600">
             {fieldErrors.password}
+          </p>
+        )}
+        {capsLock && (
+          <p id="caps-hint" className="mt-2 text-[13px] text-amber-700">
+            Caps Lock is on.
           </p>
         )}
       </div>
 
-      <button
-        type="submit"
-        disabled={submitting}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-70"
-      >
+      <button type="submit" disabled={submitting} className={authSubmit}>
         {submitting && <Spinner />}
-        {submitting ? "Signing in…" : "Sign in"}
+        {submitting ? "Logging in…" : "Log in"}
       </button>
+
+      {DEMO_ACCOUNTS.length > 0 && (
+        <div className="rounded-[14px] border border-dashed border-black/15 p-4">
+          <p className="font-mono text-[11px] text-muted">Local demo accounts</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {DEMO_ACCOUNTS.map((demo) => (
+              <button
+                key={demo.role}
+                type="button"
+                disabled={submitting}
+                onClick={() => {
+                  chooseRole(demo.role);
+                  setEmail(demo.email);
+                  setPassword(demo.password);
+                  setFieldErrors({});
+                  setFormError(null);
+                }}
+                className="press rounded-full bg-white px-3 py-1.5 text-[13px] shadow-[0_0_0_1px_rgb(0_0_0/0.06)] hover:bg-stone"
+              >
+                Fill {demo.role.toLowerCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </form>
-  );
-}
-
-function Spinner() {
-  return (
-    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.3" strokeWidth="4" />
-      <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" strokeWidth="4" />
-    </svg>
-  );
-}
-
-function EyeIcon() {
-  return (
-    <svg
-      className="h-5 w-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      aria-hidden="true"
-    >
-      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function EyeOffIcon() {
-  return (
-    <svg
-      className="h-5 w-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      aria-hidden="true"
-    >
-      <path d="M3 3l18 18" strokeLinecap="round" />
-      <path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.9 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6" />
-      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
-    </svg>
   );
 }

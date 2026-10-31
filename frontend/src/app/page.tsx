@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
@@ -8,11 +7,6 @@ import { FlowTabs } from "@/components/landing/flow-tabs";
 import { HeroWindow } from "@/components/landing/hero-window";
 import { BillingTiles, Bento, FeatureStack } from "@/components/landing/showcase";
 import { SiteHeader } from "@/components/landing/site-header";
-
-const inter = Inter({
-  variable: "--font-landing",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Brightloop | Subscription billing that runs itself",
@@ -29,7 +23,7 @@ const lightButton =
 
 export default function Home() {
   return (
-    <div className={`${inter.variable} landing min-h-screen bg-paper text-ink`}>
+    <div className="landing min-h-screen bg-paper text-ink">
       <Hero />
       <main>
         <section className="px-4 pt-24 pb-28 text-center sm:px-6 sm:pt-28 sm:pb-36">

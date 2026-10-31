@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
+import {
+  authInput,
+  authInputState,
+  authSubmit,
+  EyeToggle,
+  FormError,
+  Spinner,
+} from "@/components/auth/auth-frame";
 import { ApiError } from "@/lib/api";
 import { getCurrentUser, ROLE_HOME, signupCustomer } from "@/lib/auth";
 
@@ -90,34 +98,24 @@ export function SignupForm() {
     }
   }
 
-  const inputBase =
-    "block w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm text-zinc-900 shadow-sm placeholder:text-zinc-400 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-zinc-100";
-  const inputState = (hasError: boolean) =>
-    hasError
-      ? "border-red-400 focus:border-red-500 focus:ring-red-200"
-      : "border-zinc-300 focus:border-indigo-500 focus:ring-indigo-200";
-
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5">
       {formError && (
-        <div
-          role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
+        <FormError>
           {formError}
           {emailTaken && (
             <>
               {" "}
-              <Link href="/login" className="font-semibold underline">
-                Go to sign in
+              <Link href="/login" className="font-medium underline">
+                Log in instead
               </Link>
             </>
           )}
-        </div>
+        </FormError>
       )}
 
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-zinc-800">
+        <label htmlFor="email" className="mb-2 block text-[14px] font-medium">
           Email
         </label>
         <input
@@ -126,26 +124,27 @@ export function SignupForm() {
           type="email"
           autoComplete="email"
           inputMode="email"
+          autoFocus
           placeholder="you@company.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={submitting}
           aria-invalid={Boolean(fieldErrors.email)}
           aria-describedby={fieldErrors.email ? "email-error" : undefined}
-          className={`mt-1.5 ${inputBase} ${inputState(Boolean(fieldErrors.email))}`}
+          className={`${authInput} ${authInputState(Boolean(fieldErrors.email))}`}
         />
         {fieldErrors.email && (
-          <p id="email-error" className="mt-1.5 text-sm text-red-600">
+          <p id="email-error" className="mt-2 text-[13px] text-red-600">
             {fieldErrors.email}
           </p>
         )}
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-zinc-800">
+        <label htmlFor="password" className="mb-2 block text-[14px] font-medium">
           Password
         </label>
-        <div className="relative mt-1.5">
+        <div className="relative">
           <input
             id="password"
             name="password"
@@ -157,30 +156,32 @@ export function SignupForm() {
             disabled={submitting}
             aria-invalid={Boolean(fieldErrors.password)}
             aria-describedby="password-rules"
-            className={`pr-16 ${inputBase} ${inputState(Boolean(fieldErrors.password))}`}
+            className={`pr-12 ${authInput} ${authInputState(Boolean(fieldErrors.password))}`}
           />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            aria-pressed={showPassword}
-            className="absolute inset-y-0 right-0 flex items-center rounded-r-lg px-3 text-xs font-semibold text-zinc-500 hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:outline-none"
-          >
-            {showPassword ? "Hide" : "Show"}
-          </button>
+          <EyeToggle shown={showPassword} onToggle={() => setShowPassword((v) => !v)} />
         </div>
         {fieldErrors.password && (
-          <p className="mt-1.5 text-sm text-red-600">{fieldErrors.password}</p>
+          <p className="mt-2 text-[13px] text-red-600">{fieldErrors.password}</p>
         )}
-        <ul id="password-rules" className="mt-2 space-y-1">
+        <ul id="password-rules" className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5">
           {PASSWORD_RULES.map((rule) => {
             const met = rule.test(password);
             return (
               <li
                 key={rule.label}
-                className={`flex items-center gap-2 text-xs ${met ? "text-emerald-700" : "text-zinc-500"}`}
+                className={`flex items-center gap-1.5 text-[12px] transition-colors duration-150 ${met ? "text-emerald-700" : "text-muted"}`}
               >
-                <span aria-hidden="true">{met ? "✓" : "○"}</span>
-                {rule.label}
+                <span
+                  aria-hidden="true"
+                  className={`flex size-3.5 shrink-0 items-center justify-center rounded-full ${met ? "bg-emerald-500 text-white" : "ring-1 ring-black/15 ring-inset"}`}
+                >
+                  {met && (
+                    <svg viewBox="0 0 12 12" className="size-2.5">
+                      <path d="m2.5 6.2 2.2 2.2 4.8-5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </span>
+                {rule.label.replace(" (e.g. @ # $ !)", "")}
                 <span className="sr-only">{met ? "(met)" : "(not met)"}</span>
               </li>
             );
@@ -189,7 +190,7 @@ export function SignupForm() {
       </div>
 
       <div>
-        <label htmlFor="confirm" className="block text-sm font-medium text-zinc-800">
+        <label htmlFor="confirm" className="mb-2 block text-[14px] font-medium">
           Confirm password
         </label>
         <input
@@ -197,26 +198,28 @@ export function SignupForm() {
           name="confirm"
           type={showPassword ? "text" : "password"}
           autoComplete="new-password"
-          placeholder="Re-enter your password"
+          placeholder="Type it again"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           disabled={submitting}
           aria-invalid={Boolean(fieldErrors.confirm)}
           aria-describedby={fieldErrors.confirm ? "confirm-error" : undefined}
-          className={`mt-1.5 ${inputBase} ${inputState(Boolean(fieldErrors.confirm))}`}
+          className={`${authInput} ${authInputState(Boolean(fieldErrors.confirm))}`}
         />
-        {fieldErrors.confirm && (
-          <p id="confirm-error" className="mt-1.5 text-sm text-red-600">
+        {fieldErrors.confirm ? (
+          <p id="confirm-error" className="mt-2 text-[13px] text-red-600">
             {fieldErrors.confirm}
           </p>
+        ) : (
+          confirm &&
+          confirm === password && (
+            <p className="mt-2 text-[13px] text-emerald-700">Passwords match.</p>
+          )
         )}
       </div>
 
-      <button
-        type="submit"
-        disabled={submitting}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-70"
-      >
+      <button type="submit" disabled={submitting} className={authSubmit}>
+        {submitting && <Spinner />}
         {submitting ? "Creating account…" : "Create account"}
       </button>
     </form>
