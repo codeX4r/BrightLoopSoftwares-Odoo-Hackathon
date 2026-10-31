@@ -3,7 +3,8 @@
 Last updated: 31 Oct 2026, night (IST)
 Team: Sahil (staff panel, billing, customer backend), Parth (customer portal pages, change
 password), Adarsh (auth, admin panel).
-Branch: `main`. Today's work (section 3) is **not committed yet**.
+Branch: today's work is on `adarsh`, merged with the latest `main` (landing page and new app
+design).
 Email features and deployment are left out on purpose; they come later.
 
 ---
@@ -116,11 +117,12 @@ The system covers the whole subscription cycle for three roles: admin, staff and
 - Profile (name, company, phone, address) and password change.
 
 ### 2.5 Shared across all areas (new today)
-- **One layout:** admin, staff and customer screens all use the dark sidebar, a top bar with
-  breadcrumbs, and an account menu with sign out. On phones the sidebar opens as a drawer.
-  The frame is hidden when printing.
-- **One set of components:** staff and customer screens now use the admin's buttons, inputs
-  and cards (`components/ui`). Admin panels use the same card style.
+- **One layout:** admin, staff and customer screens share one app shell
+  (`components/app/app-shell.tsx`, from `main`). It has a grouped sidebar with icons, an
+  account menu with log out, and a drawer on phones. It is hidden when printing. Admins keep
+  their sidebar on the staff screens. Quotation templates are in the admin and staff
+  sidebars.
+- **Landing page** at `/`, and a new design for sign-in and sign-up (from `main`).
 - **Company details on documents:** printed quotations and invoices (staff and customer)
   show the company name, address, phone and email from the admin settings. They no longer
   always say "Brightloop Software". The new `GET /api/company` endpoint gives every
@@ -136,7 +138,7 @@ The system covers the whole subscription cycle for three roles: admin, staff and
 | 2 | Screens for quotation templates | Done |
 | 3 | Company details from settings on printed documents | Done |
 | 4 | Admin sidebar sometimes loses its dark style in development | The production build styles it correctly. Your running dev server still needs one restart with `frontend/.next` deleted (not done, because the server is yours) |
-| 5 | One layout and one set of components for all roles | Done |
+| 5 | One layout and one set of components for all roles | Done. My version was replaced by the app shell from `main` when the branches were merged |
 | 6 | Test every screen in a browser | Partly done, see section 4 |
 | 7 | Run the 2 skipped tests on a real Postgres database | Done: 312 of 312 pass on a throwaway local Postgres database (not Neon) |
 | 8–10 | Neon password, demo passwords, remove demo data | Not done. These are for you to do; see section 5 |
@@ -146,9 +148,9 @@ Smaller changes made along the way:
   `quotation_validity_days` and each line's product and variant.
 - The "Send quotation" step now defaults to the quotation's own validity, not a fixed 15
   days.
-- The admin's notification bell was removed. It only ever showed a placeholder saying
-  alerts would come "once billing is built".
-- A "Templates" link was added to the admin and staff sidebars.
+- A "Quotation templates" link was added to the admin and staff sidebars.
+- The new quotation form, template form and company details block still use the plain grey
+  colours (`zinc`). They work, but they don't match `main`'s new colours yet.
 
 ---
 
@@ -184,7 +186,8 @@ for activation, billing and invoices is covered by the automated tests.
 ### Before the demo
 1. Restart your frontend dev server once, with `frontend/.next` deleted (item 4).
 2. Click through, by hand: activate a quotation, generate its invoice, and print it.
-3. Review and commit today's changes (listed in section 8).
+3. Restyle the quotation form, template form and company details block in `main`'s new
+   colours.
 
 ### Before going live (not needed for the demo)
 4. The Neon password was shared in chat. Change it in the Neon console and update
@@ -253,15 +256,13 @@ TEST_DATABASE_URL=postgresql+psycopg://localhost/brightloop_test uv run pytest
 
 ---
 
-## 8. Today's changes (not committed yet)
+## 8. Today's changes (on branch `adarsh`)
 
 Backend:
 - `app/api/routes/company.py` (new): `GET /api/company`.
 - `app/api/__init__.py`: registers the new route.
 
 Frontend, new files:
-- `components/app-shell.tsx`: the shared layout.
-- `components/ui/card.tsx`: the shared card.
 - `components/company-details.tsx` and `lib/company.ts`: company details on documents.
 - `components/staff/quotation-fields.tsx`: the plan picker and line editor.
 - `components/staff/template-form.tsx`: the template form.
@@ -270,9 +271,7 @@ Frontend, new files:
 Frontend, changed files:
 - The quotation form, the new quotation page and the quotation detail page.
 - The staff API types, `lib/staff-api.ts`.
-- The admin, staff and portal layouts and their navigation lists, and `role-guard.tsx`.
-- `components/staff/ui.tsx` and `components/admin/detail-ui.tsx`: now use the shared
-  components.
+- `components/app/nav-config.ts`: the "Quotation templates" links.
 - The quotation document and the staff and customer invoice pages.
 
 Two local test databases were created on this machine's Postgres: `brightloop_test` and

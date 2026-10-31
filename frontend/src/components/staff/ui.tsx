@@ -1,21 +1,12 @@
 import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-import { buttonClass } from "@/components/ui/button";
-import { inputClass as sharedInputClass } from "@/components/ui/field";
 import { INVOICE_STATUS_LABEL, SUBSCRIPTION_STATUS_LABEL } from "@/lib/format";
 import type { CustomerSummary, InvoiceStatus, SubscriptionStatus } from "@/lib/staff-api";
 
-/**
- * Staff and customer screens use the same buttons, inputs, fields and cards as the admin
- * screens (components/ui). This module keeps the staff-side names and adds the
- * staff-specific pieces (status badges, tables, customer cells).
- */
-export { Card } from "@/components/ui/card";
-export { Field } from "@/components/ui/field";
-
-/** Shared input classes; invalid inputs (aria-invalid) get a red border. */
-export const inputClass = `${sharedInputClass()} aria-invalid:border-red-400`;
+/** Shared input classes, matching the login form. */
+export const inputClass =
+  "block w-full rounded-[10px] border border-black/10 bg-white px-3 py-2 text-[14px] text-ink shadow-[0_1px_2px_rgb(0_0_0/0.04)] placeholder:text-black/30 focus:border-loop/60 focus:ring-4 focus:ring-loop/10 focus:outline-none disabled:cursor-not-allowed disabled:bg-stone aria-invalid:border-red-300";
 
 export function PageHeader({
   title,
@@ -29,8 +20,10 @@ export function PageHeader({
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">{title}</h1>
-        {description && <p className="mt-1 text-sm text-zinc-600">{description}</p>}
+        <h1 className="text-[28px] leading-tight font-medium tracking-[-0.03em] text-ink sm:text-[32px]">
+          {title}
+        </h1>
+        {description && <p className="mt-1.5 max-w-[640px] text-[15px] text-muted">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
@@ -40,6 +33,14 @@ export function PageHeader({
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "danger";
   busy?: boolean;
+};
+
+const BUTTON_VARIANT = {
+  primary: "bg-ink text-white hover:bg-black focus-visible:ring-ink/30",
+  secondary:
+    "bg-white text-ink shadow-[0_0_0_1px_rgb(0_0_0/0.08),0_1px_2px_rgb(0_0_0/0.04)] hover:bg-stone focus-visible:ring-loop/30",
+  danger:
+    "bg-white text-red-700 shadow-[0_0_0_1px_rgb(220_38_38/0.2)] hover:bg-red-50 focus-visible:ring-red-200",
 };
 
 export function Button({
@@ -55,7 +56,7 @@ export function Button({
     <button
       type={type}
       disabled={disabled || busy}
-      className={`${buttonClass(variant)} ${className}`}
+      className={`press inline-flex items-center justify-center gap-2 rounded-[10px] px-3.5 py-2 text-[14px] font-medium focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${BUTTON_VARIANT[variant]} ${className}`}
       {...props}
     >
       {busy && <Spinner />}
@@ -74,7 +75,10 @@ export function ButtonLink({
   variant?: "primary" | "secondary";
 }) {
   return (
-    <Link href={href} className={buttonClass(variant)}>
+    <Link
+      href={href}
+      className={`press inline-flex items-center justify-center gap-2 rounded-[10px] px-3.5 py-2 text-[14px] font-medium focus-visible:ring-2 focus-visible:outline-none ${BUTTON_VARIANT[variant]}`}
+    >
       {children}
     </Link>
   );
@@ -89,6 +93,30 @@ export function Spinner() {
   );
 }
 
+export function Card({
+  title,
+  actions,
+  children,
+  className = "",
+}: {
+  title?: string;
+  actions?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={`rounded-[16px] border border-transparent bg-white shadow-[0_0_0_1px_rgb(0_0_0/0.05),0_1px_2px_rgb(0_0_0/0.03)] ${className}`}>
+      {(title || actions) && (
+        <div className="flex items-center justify-between gap-3 border-b border-black/[0.06] px-5 py-4">
+          {title && <h2 className="text-[15px] font-medium text-ink">{title}</h2>}
+          {actions}
+        </div>
+      )}
+      <div className="p-5">{children}</div>
+    </section>
+  );
+}
+
 export function Alert({
   children,
   tone = "error",
@@ -99,12 +127,12 @@ export function Alert({
   const styles = {
     error: "border-red-200 bg-red-50 text-red-700",
     success: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    info: "border-indigo-200 bg-indigo-50 text-indigo-800",
+    info: "border-loop/15 bg-loop/[0.05] text-ink",
   }[tone];
   return (
     <div
       role={tone === "error" ? "alert" : "status"}
-      className={`rounded-lg border px-4 py-3 text-sm ${styles}`}
+      className={`rounded-[12px] border px-4 py-3 text-[14px] leading-snug ${styles}`}
     >
       {children}
     </div>
@@ -153,6 +181,36 @@ export function InvoiceStatusBadge({
   return <Badge className={INVOICE_BADGE[status]}>{INVOICE_STATUS_LABEL[status]}</Badge>;
 }
 
+export function Field({
+  label,
+  htmlFor,
+  error,
+  hint,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  error?: string;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <label htmlFor={htmlFor} className="block text-[14px] font-medium text-ink">
+        {label}
+      </label>
+      <div className="mt-1.5">{children}</div>
+      {error ? (
+        <p id={`${htmlFor}-error`} className="mt-1.5 text-sm text-red-600">
+          {error}
+        </p>
+      ) : (
+        hint && <p className="mt-1.5 text-xs text-zinc-500">{hint}</p>
+      )}
+    </div>
+  );
+}
+
 export function TableShell({
   head,
   children,
@@ -165,12 +223,12 @@ export function TableShell({
   isEmpty: boolean;
 }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
-      <table className="min-w-full divide-y divide-zinc-200 text-sm">
-        <thead className="bg-zinc-50 text-left text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+    <div className="overflow-x-auto rounded-[16px] border border-transparent bg-white shadow-[0_0_0_1px_rgb(0_0_0/0.05),0_1px_2px_rgb(0_0_0/0.03)]">
+      <table className="min-w-full divide-y divide-black/[0.06] text-[14px]">
+        <thead className="bg-stone/50 text-left font-mono text-[11px] font-normal text-muted">
           {head}
         </thead>
-        <tbody className="divide-y divide-zinc-100">
+        <tbody className="divide-y divide-black/[0.05]">
           {isEmpty ? (
             <tr>
               <td colSpan={20} className="px-4 py-12 text-center text-zinc-500">
@@ -242,7 +300,7 @@ export function CustomerCell({ customer, href }: { customer: CustomerSummary; hr
   return (
     <span className="block">
       {href ? (
-        <Link href={href} className="hover:text-indigo-600">
+        <Link href={href} className="hover:text-loop">
           {main}
         </Link>
       ) : (
@@ -269,7 +327,7 @@ export function DetailList({ items }: { items: [string, ReactNode][] }) {
     <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
       {items.map(([label, value]) => (
         <div key={label}>
-          <dt className="text-xs font-medium tracking-wide text-zinc-500 uppercase">{label}</dt>
+          <dt className="font-mono text-[11px] text-muted">{label}</dt>
           <dd className="mt-1 text-sm text-zinc-900">{value}</dd>
         </div>
       ))}

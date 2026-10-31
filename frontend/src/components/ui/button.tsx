@@ -4,21 +4,21 @@ type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 type ButtonSize = "sm" | "md";
 
 const VARIANT: Record<ButtonVariant, string> = {
-  primary: "bg-indigo-600 text-white shadow-sm hover:bg-indigo-500 focus-visible:ring-indigo-300",
+  primary: "bg-ink text-white hover:bg-black focus-visible:ring-ink/30",
   secondary:
-    "border border-zinc-300 bg-white text-zinc-800 shadow-sm hover:bg-zinc-50 focus-visible:ring-zinc-300",
-  danger: "bg-red-600 text-white shadow-sm hover:bg-red-500 focus-visible:ring-red-300",
-  ghost: "text-zinc-700 hover:bg-zinc-100 focus-visible:ring-zinc-300",
+    "bg-white text-ink shadow-[0_0_0_1px_rgb(0_0_0/0.08),0_1px_2px_rgb(0_0_0/0.04)] hover:bg-stone focus-visible:ring-loop/30",
+  danger: "bg-red-600 text-white hover:bg-red-500 focus-visible:ring-red-300",
+  ghost: "text-ink/70 hover:bg-black/[0.04] hover:text-ink focus-visible:ring-loop/30",
 };
 
 const SIZE: Record<ButtonSize, string> = {
-  sm: "px-2.5 py-1 text-xs",
-  md: "px-4 py-2 text-sm",
+  sm: "px-2.5 py-1 text-[13px]",
+  md: "px-4 py-2 text-[14px]",
 };
 
 export function buttonClass(variant: ButtonVariant = "primary", size: ButtonSize = "md"): string {
   return [
-    "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition",
+    "press inline-flex items-center justify-center gap-2 rounded-[10px] font-medium",
     "focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none",
     "disabled:cursor-not-allowed disabled:opacity-60",
     VARIANT[variant],

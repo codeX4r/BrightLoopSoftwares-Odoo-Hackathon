@@ -1,7 +1,15 @@
-import type { NavItem } from "@/components/app-shell";
+export type AdminNavItem = {
+  label: string;
+  href: string;
+  /** False for modules that have no backend yet. Their pages show a "not built yet" notice. */
+  ready: boolean;
+  note?: string;
+  /** Opens the staff panel (shared screens), which admins can use too. */
+  staffPanel?: boolean;
+};
 
 /** Sidebar order follows the admin brief. */
-export const ADMIN_NAV: NavItem[] = [
+export const ADMIN_NAV: AdminNavItem[] = [
   { label: "Dashboard", href: "/admin", ready: true },
   { label: "Products", href: "/admin/products", ready: true },
   {
@@ -21,13 +29,6 @@ export const ADMIN_NAV: NavItem[] = [
     note: "Quotations are subscriptions in Draft or Quotation status.",
   },
   { label: "Subscriptions", href: "/staff/subscriptions", ready: true, staffPanel: true },
-  {
-    label: "Templates",
-    href: "/staff/templates",
-    ready: true,
-    staffPanel: true,
-    note: "Quotation templates: reusable plans, terms and lines.",
-  },
   { label: "Invoices", href: "/staff/invoices", ready: true, staffPanel: true },
   { label: "Taxes", href: "/admin/taxes", ready: true },
   { label: "Discounts", href: "/admin/discounts", ready: true },

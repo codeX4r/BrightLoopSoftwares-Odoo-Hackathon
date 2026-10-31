@@ -3,7 +3,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/feedback";
 import type { PaymentBrief } from "@/lib/admin-api";
 import { PAYMENT_METHOD_LABEL, formatDate, formatINR } from "@/lib/format";
@@ -63,9 +62,13 @@ export function Stat({
 
 export function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <Card title={title} bodyClassName="space-y-4">
+    <section
+      aria-label={title}
+      className="space-y-4 rounded-xl border border-zinc-200 bg-white p-6"
+    >
+      <h2 className="text-base font-semibold text-zinc-900">{title}</h2>
       {children}
-    </Card>
+    </section>
   );
 }
 

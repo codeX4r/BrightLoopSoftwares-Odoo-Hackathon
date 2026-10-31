@@ -2,12 +2,12 @@ import type { ReactNode } from "react";
 
 export function inputClass(hasError = false): string {
   const state = hasError
-    ? "border-red-400 focus:border-red-500 focus:ring-red-200"
-    : "border-zinc-300 focus:border-indigo-500 focus:ring-indigo-200";
+    ? "border-red-300 focus:border-red-400 focus:ring-red-100"
+    : "border-black/10 focus:border-loop/60 focus:ring-loop/10";
   return [
-    "block w-full rounded-lg border bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm",
-    "placeholder:text-zinc-400 focus:ring-2 focus:outline-none",
-    "disabled:cursor-not-allowed disabled:bg-zinc-100",
+    "block w-full rounded-[10px] border bg-white px-3 py-2 text-[14px] text-ink shadow-[0_1px_2px_rgb(0_0_0/0.04)]",
+    "placeholder:text-black/30 focus:ring-4 focus:outline-none",
+    "disabled:cursor-not-allowed disabled:bg-stone",
     state,
   ].join(" ");
 }
@@ -24,7 +24,7 @@ type FieldProps = {
 export function Field({ label, htmlFor, error, hint, children }: FieldProps) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-zinc-800">
+      <label htmlFor={htmlFor} className="block text-[14px] font-medium text-ink">
         {label}
       </label>
       <div className="mt-1.5">{children}</div>

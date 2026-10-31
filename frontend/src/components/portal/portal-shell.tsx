@@ -2,9 +2,9 @@
 
 import { createContext, useContext } from "react";
 
+import { AppShell } from "@/components/app/app-shell";
+import { PORTAL_GROUPS } from "@/components/app/nav-config";
 import { RoleGuard } from "@/components/auth/role-guard";
-import { AppShell } from "@/components/app-shell";
-import { PORTAL_NAV } from "@/components/portal/portal-nav";
 import type { CurrentUser } from "@/lib/auth";
 
 const PortalUserContext = createContext<CurrentUser | null>(null);
@@ -16,13 +16,13 @@ export function usePortalUser(): CurrentUser {
   return user;
 }
 
-/** Customer-only frame for /portal: checks the session in the browser, then shows the app frame. */
+/** Customer-only frame for /portal: checks the session in the browser, then shows nav + page. */
 export function PortalShell({ children }: { children: React.ReactNode }) {
   return (
     <RoleGuard role="CUSTOMER">
       {(user) => (
         <PortalUserContext.Provider value={user}>
-          <AppShell user={user} nav={PORTAL_NAV} navLabel="Customer portal navigation">
+          <AppShell user={user} groups={PORTAL_GROUPS}>
             {children}
           </AppShell>
         </PortalUserContext.Provider>
