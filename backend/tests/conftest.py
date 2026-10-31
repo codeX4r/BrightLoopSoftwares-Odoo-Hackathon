@@ -38,7 +38,9 @@ if TEST_DATABASE_URL.startswith("sqlite"):
         poolclass=StaticPool,
     )
 else:
-    engine = create_engine(TEST_DATABASE_URL)
+    # Tables and enum types are recreated for every test, so a statement psycopg prepared
+    # server-side would point at stale types ("cached plan must not change result type").
+    engine = create_engine(TEST_DATABASE_URL, connect_args={"prepare_threshold": None})
 
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
