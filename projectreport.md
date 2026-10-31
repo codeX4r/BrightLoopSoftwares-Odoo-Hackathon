@@ -1,113 +1,213 @@
 # Project report: Subscription Management System
 
-Last updated: 31 Oct 2026, evening (IST)
+Last updated: 31 Oct 2026, night (IST)
 Team: Sahil (staff panel, billing, customer backend), Parth (customer portal pages, change
 password), Adarsh (auth, admin panel).
-Branch: everything is merged into `main`.
+Branch: `main`. Today's work (section 3) is **not committed yet**.
 Email features and deployment are left out on purpose; they come later.
 
 ---
 
-## 1. Where the project stands
+## 1. Summary
 
-The project works end to end for all three roles: admin, staff and customer.
+The system covers the whole subscription cycle for three roles: admin, staff and customer.
 
-- The admin manages products, variants, plans, taxes, discounts, reports, settings,
-  customers and staff.
-- Staff create quotations, activate subscriptions, generate invoices and record payments.
-- Customers sign up, accept or decline quotations, see their invoices and manage their
-  subscriptions.
-- Invoices apply the admin's discounts and taxes automatically.
-- Subscriptions follow their plan's rules for pausing, renewing and closing.
-- 306 backend tests pass, and the frontend builds with no errors.
-- The Neon database is up to date (migration `97f2c66310f4`) and has demo data in it.
+1. The admin sets up products, plans, taxes and discounts.
+2. Staff build a quotation from that catalog and send it.
+3. The customer accepts or declines it in the portal.
+4. Staff activate the subscription.
+5. Invoices are generated on each billing date, with the discount and tax applied.
+6. Staff record payments until each invoice is paid.
 
----
-
-## 2. What works
-
-### Admin (`/admin`)
-- Manage products and their variants, with sales and cost prices.
-- Manage product types.
-- Manage subscription plans: price, billing frequency, minimum quantity, available dates,
-  and whether customers may pause, renew or close early.
-- Manage taxes and choose which products they apply to.
-- Manage discounts: fixed or percentage, minimums, dates and usage limits.
-- See revenue and subscription reports.
-- Change company settings and the invoice number prefix.
-- Add staff, and activate or deactivate customers and staff.
-- Open the staff screens for quotations, invoices and payments.
-
-### Staff (`/staff`)
-- See a dashboard of customers, revenue, outstanding money, overdue invoices and recent
-  activity.
-- Add, search and edit customers, and see each customer's full history.
-- Create, send and activate quotations. Quotations can use an admin plan, and lines can use
-  admin products with their tax filled in automatically.
-- Generate invoices automatically, with no duplicates. Missed billing days are caught up.
-- Confirm, cancel, print and download invoices. Discounts show on the invoice.
-- Record full or part payments with a transaction ID.
-- Pause, resume and renew subscriptions when the plan allows it.
-- Change their own password.
-
-### Customer (`/portal`)
-- Sign up for a customer account.
-- See an overview of subscriptions, quotations and money owed.
-- Accept or decline a quotation, with a reason.
-- See and filter invoices, and print them.
-- Pause, resume, renew or close a subscription early when the plan allows it.
-- Edit their profile and change their password.
+| Measure | Value |
+|---|---|
+| Backend API endpoints | 99 |
+| Frontend screens (`page.tsx`) | 41 |
+| Backend tests | 312 pass (198 test functions, some run with several inputs) |
+| Tests on real Postgres | 312 pass, including the 2 that are skipped on SQLite |
+| Database migration head | `97f2c66310f4` (today's work needs no new migration) |
+| Frontend checks | `tsc`, `eslint` and `next build` pass with no errors |
 
 ---
 
-## 3. Remaining work
+## 2. Features that are done
 
-These items are not done yet. Times are rough estimates for one developer.
+### 2.1 Accounts and security
+- Sign in for admin, staff and customer. The login form asks for the role, and the server
+  checks it against the account.
+- Customers can sign up themselves. Admins create staff accounts.
+- Sessions are stored on the server (`auth_sessions` table). The browser gets an HttpOnly
+  cookie, and a Bearer token also works for API clients.
+- Passwords are hashed with Argon2id. A login with an unknown email takes as long as a
+  real check, so attackers can't find out which emails exist from response times.
+- Too many failed logins are blocked per email and per IP. The limiter keeps its counts
+  in memory.
+- Cookie-authenticated writes need the `X-Requested-With` header (CSRF protection).
+- Every route checks the role stored in the database. Customers only ever see their own
+  records.
+- Staff and customers can change their password. This signs out their other sessions.
+- Forgot password: the backend is done. Links are single-use, expire after 30 minutes and
+  are rate limited. There is no page for it yet (it needs email).
 
-### Staff panel
-1. The quotation form still asks staff to type each line by hand. The backend already
-   supports choosing a plan and products, but the form has no dropdowns for them yet.
-   (3–4 hours)
-2. Quotation templates have a backend but no screen. Staff can't save or reuse a template
-   from the browser yet. (1–2 hours)
-3. Quotation and invoice PDFs always print "Brightloop Software". They should use the
-   company name, address and phone from the admin settings. (30 minutes)
+### 2.2 Admin panel (`/admin`)
+- Dashboard with customer, billing and catalog figures.
+- Product types.
+- Products with sales and cost price, and variants with an extra price on top of the product
+  price. Products can be archived.
+- Subscription plans with:
+  - price and billing frequency (daily, weekly, monthly or yearly)
+  - minimum quantity
+  - the dates when the plan can be offered
+  - which products the plan includes
+  - rules for pausing, renewing, closing early and closing automatically at expiry
+- Taxes. Each tax applies to chosen products or product types, and one tax can be the
+  default. The tax for a line is found in this order: product, then product type, then the
+  default. Taxes are deactivated, never deleted.
+- Discounts:
+  - fixed amount or percentage
+  - minimum purchase amount or quantity
+  - start and end dates
+  - usage limit, which holds even when several invoices are confirmed at once
+  - a preview of how a discount would apply
+- Reports: invoiced, received, outstanding and overdue amounts, plus subscription counts,
+  for any date range.
+- Settings: company name, address, email and phone, and the invoice number prefix.
+  Currency and time zone are fixed to INR and India time for now.
+- Customer and staff lists, with details, editing, and activating or deactivating accounts.
+- Admins can open the staff screens (quotations, subscriptions, templates, invoices,
+  payments) and keep the admin sidebar there.
 
-### Admin panel
-4. The admin sidebar sometimes shows without its dark style during development. Stop the
-   dev server, delete the `frontend/.next` folder, and start it again to fix it. Then check
-   it in the browser. (15 minutes)
+### 2.3 Staff panel (`/staff`)
+- Dashboard: customers, active subscriptions, money received, outstanding and overdue
+  amounts, quotations waiting for an answer, recent activity, and a "Generate due invoices"
+  button.
+- Customers: add, search, edit, and a full history for each customer.
+- Quotations and subscriptions go Draft → Quotation → Confirmed → Active → Closed. Staff can
+  move a quotation back to draft, mark it as accepted, activate, pause, resume, renew and
+  close it. Pause and renew follow the plan's rules.
+- **Quotation form (new today):**
+  - pick an admin plan from a dropdown; the plan line is added at the plan's minimum quantity
+  - add products, and pick a variant where the product has them
+  - prices and tax fill in automatically and can still be changed on each line
+  - custom lines can still be typed by hand
+  - a tax dropdown lists the admin's taxes
+  - quotation validity (days) can be set
+- **Quotation templates (new today):** list, create, edit, deactivate and delete. Staff can
+  start a new quotation from a template, or save any quotation as a template.
+- Invoices are generated automatically:
+  - one invoice per billing period, never two for the same period
+  - missed billing days are caught up on the next run
+  - paused subscriptions are skipped
+  - billing stops at the expiry date
+  - plans set to close at expiry close after the last invoice
+- Invoices go Draft → Confirmed → Paid, and can be cancelled while unpaid. The best eligible
+  discount comes off before tax. "Send" only records that the invoice was sent; no email
+  goes out.
+- Payments: full or partial, with the method, date and a transaction ID. The invoice is
+  marked paid when the payments reach its total.
+- Quotations and invoices can be printed or saved as PDF.
 
-### All areas
-5. The admin, staff and customer screens look different. The admin side uses a dark
-   sidebar, while staff and customers use a top bar. They should share one layout and one
-   set of buttons, cards and tables. (3–4 hours)
-6. Nobody has clicked through every screen in a browser yet. Each role should be tested by
-   hand before the demo. (1–2 hours)
-7. Two backend tests are skipped because they need a real Postgres database. They should be
-   run once against a test database, not the shared Neon one. (30 minutes)
+### 2.4 Customer portal (`/portal`)
+- Overview of subscriptions, quotations to review, the balance due and overdue amounts.
+- Accept a quotation, or decline it with a reason. A quotation can't be accepted after it
+  expires, but it can still be declined.
+- Pause, resume, renew or close a subscription early, when the plan allows it.
+- Invoice list with filters, invoice details, and print or save as PDF.
+- Profile (name, company, phone, address) and password change.
+
+### 2.5 Shared across all areas (new today)
+- **One layout:** admin, staff and customer screens all use the dark sidebar, a top bar with
+  breadcrumbs, and an account menu with sign out. On phones the sidebar opens as a drawer.
+  The frame is hidden when printing.
+- **One set of components:** staff and customer screens now use the admin's buttons, inputs
+  and cards (`components/ui`). Admin panels use the same card style.
+- **Company details on documents:** printed quotations and invoices (staff and customer)
+  show the company name, address, phone and email from the admin settings. They no longer
+  always say "Brightloop Software". The new `GET /api/company` endpoint gives every
+  signed-in user read access; only the admin can change the details.
+
+---
+
+## 3. Today's work on the old "remaining work" list
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Plan and product dropdowns in the quotation form | Done |
+| 2 | Screens for quotation templates | Done |
+| 3 | Company details from settings on printed documents | Done |
+| 4 | Admin sidebar sometimes loses its dark style in development | The production build styles it correctly. Your running dev server still needs one restart with `frontend/.next` deleted (not done, because the server is yours) |
+| 5 | One layout and one set of components for all roles | Done |
+| 6 | Test every screen in a browser | Partly done, see section 4 |
+| 7 | Run the 2 skipped tests on a real Postgres database | Done: 312 of 312 pass on a throwaway local Postgres database (not Neon) |
+| 8–10 | Neon password, demo passwords, remove demo data | Not done. These are for you to do; see section 5 |
+
+Smaller changes made along the way:
+- The `Subscription` types in the frontend now include `plan_id`,
+  `quotation_validity_days` and each line's product and variant.
+- The "Send quotation" step now defaults to the quotation's own validity, not a fixed 15
+  days.
+- The admin's notification bell was removed. It only ever showed a placeholder saying
+  alerts would come "once billing is built".
+- A "Templates" link was added to the admin and staff sidebars.
+
+---
+
+## 4. What was checked, and what wasn't
+
+All browser checks ran in headless Chrome against a local copy of the database on ports
+8010 and 3010. The shared Neon database and your servers on 8000 and 3000 were not touched.
+
+**Checked:**
+- 48 screens across all three roles (admin, staff, and three customers), including detail
+  pages. None had a script error, a failed API call or a page stuck loading.
+- The quotation flow in the browser. These steps all passed:
+  1. Build a quotation from a plan, a product variant and a custom line. The saved prices,
+     taxes and total were correct (₹1,33,610.00).
+  2. Save it as a template.
+  3. Use the template for a new quotation. Every field was filled in correctly.
+  4. Edit it to a custom plan. The plan was detached.
+  5. Edit another draft without changing its plan. The plan was kept.
+  6. Print the quotation. The company name, address and phone from the settings showed.
+  7. Send the quotation.
+- The customer accepted the quotation in the portal.
+
+**Not checked in the browser:** the test stopped at "Activate subscription" because
+testing was stopped. These steps have not been clicked through yet: activating after the
+customer accepts, generating the invoice from the dashboard, printing an invoice with the
+company details, editing a template, and the admin sidebar on staff screens. The backend
+for activation, billing and invoices is covered by the automated tests.
+
+---
+
+## 5. Still open
+
+### Before the demo
+1. Restart your frontend dev server once, with `frontend/.next` deleted (item 4).
+2. Click through, by hand: activate a quotation, generate its invoice, and print it.
+3. Review and commit today's changes (listed in section 8).
 
 ### Before going live (not needed for the demo)
-8. The Neon password was shared in chat. Change it in the Neon console and update
+4. The Neon password was shared in chat. Change it in the Neon console and update
    `backend/.env`.
-9. The demo passwords in `readme.md` are public. Use different passwords on any real
+5. The demo passwords in `readme.md` are public. Use different passwords on any real
    database.
-10. Remove the demo data with `uv run python -m app.jobs.demo_data --remove`.
-
-**Total remaining: about 9–13 hours.**
+6. Remove the demo data with `uv run python -m app.jobs.demo_data --remove`. This deletes
+   it for good.
+7. The login rate limiter keeps its counts in memory. With more than one server process,
+   move it to a shared store such as Redis.
 
 ### Left out on purpose
-- Email: forgot password, sending invoices and quotations, and reminders. The forgot
-  password backend exists, but there's no page for it yet.
+- Email: the forgot password page, emailing invoices and quotations, and reminders.
 - Deployment.
+- Currencies other than INR and time zones other than India time.
 
 ---
 
-## 4. Demo data and logins
+## 6. Demo data and logins (Neon)
 
-The database has 49 customers, 40 active subscriptions, 9 open quotations, 111 payments,
-4 products, 3 plans, 1 tax (GST 5%, the default) and 1 discount (10% off orders of
-₹50,000 or more).
+The Neon database has 49 customers, 40 active subscriptions, 9 open quotations, 111
+payments, 4 products, 3 plans, 1 tax (GST 5%, the default) and 1 discount (10% off orders
+of ₹50,000 or more). It has no quotation templates yet.
 
 | Login | Password | Shows |
 |---|---|---|
@@ -125,9 +225,9 @@ If someone changes a demo password in the browser, it changes for everyone.
 
 ---
 
-## 5. How to run it
+## 7. How to run it
 
-```powershell
+```bash
 # Backend (http://localhost:8000)
 cd backend
 uv sync
@@ -142,3 +242,38 @@ npm run dev
 
 Invoices are generated with the "Generate due invoices" button on the staff dashboard, or
 with `uv run python -m app.jobs.billing`.
+
+Run the tests on SQLite with `uv run pytest`. To run them on Postgres, use a database you
+can throw away, because the tests drop its tables:
+
+```bash
+createdb brightloop_test
+TEST_DATABASE_URL=postgresql+psycopg://localhost/brightloop_test uv run pytest
+```
+
+---
+
+## 8. Today's changes (not committed yet)
+
+Backend:
+- `app/api/routes/company.py` (new): `GET /api/company`.
+- `app/api/__init__.py`: registers the new route.
+
+Frontend, new files:
+- `components/app-shell.tsx`: the shared layout.
+- `components/ui/card.tsx`: the shared card.
+- `components/company-details.tsx` and `lib/company.ts`: company details on documents.
+- `components/staff/quotation-fields.tsx`: the plan picker and line editor.
+- `components/staff/template-form.tsx`: the template form.
+- `app/staff/templates/` (list, new and edit pages): the template screens.
+
+Frontend, changed files:
+- The quotation form, the new quotation page and the quotation detail page.
+- The staff API types, `lib/staff-api.ts`.
+- The admin, staff and portal layouts and their navigation lists, and `role-guard.tsx`.
+- `components/staff/ui.tsx` and `components/admin/detail-ui.tsx`: now use the shared
+  components.
+- The quotation document and the staff and customer invoice pages.
+
+Two local test databases were created on this machine's Postgres: `brightloop_test` and
+`brightloop_smoke`. Nothing uses them, and you can remove them with `dropdb`.
