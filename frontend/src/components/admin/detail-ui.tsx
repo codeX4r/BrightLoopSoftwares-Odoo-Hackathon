@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { EmptyState } from "@/components/ui/feedback";
@@ -20,7 +21,14 @@ export function PaymentsTable({ payments }: { payments: PaymentBrief[] }) {
       {payments.map((p) => (
         <tr key={p.id}>
           <td className="px-4 py-3">{formatDate(p.paid_on)}</td>
-          <td className="px-4 py-3 font-medium text-zinc-900">{p.invoice_number}</td>
+          <td className="px-4 py-3 font-medium">
+            <Link
+              href={`/staff/invoices/${p.invoice_id}`}
+              className="text-indigo-600 hover:underline"
+            >
+              {p.invoice_number}
+            </Link>
+          </td>
           <td className="px-4 py-3">{p.customer_email}</td>
           <td className="px-4 py-3">
             {PAYMENT_METHOD_LABEL[p.method as PaymentMethod] ?? p.method}

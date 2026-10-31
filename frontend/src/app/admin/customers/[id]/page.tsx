@@ -107,7 +107,14 @@ export default function CustomerDetailPage() {
               >
                 {subscriptions.data.items.map((s) => (
                   <tr key={s.id}>
-                    <td className="px-4 py-3 font-medium text-zinc-900">{s.number}</td>
+                    <td className="px-4 py-3 font-medium">
+                      <Link
+                        href={`/staff/subscriptions/${s.id}`}
+                        className="text-indigo-600 hover:underline"
+                      >
+                        {s.number}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3">{s.plan_name}</td>
                     <td className="px-4 py-3">{FREQUENCY_LABEL[s.billing_frequency]}</td>
                     <td className="px-4 py-3">
@@ -152,7 +159,14 @@ export default function CustomerDetailPage() {
               <Table head={["Number", "Period", "Due", "Status", "Total", "Paid", "Due amount"]}>
                 {invoices.data.items.map((i) => (
                   <tr key={i.id}>
-                    <td className="px-4 py-3 font-medium text-zinc-900">{i.number}</td>
+                    <td className="px-4 py-3 font-medium">
+                      <Link
+                        href={`/staff/invoices/${i.id}`}
+                        className="text-indigo-600 hover:underline"
+                      >
+                        {i.number}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3">
                       {formatDate(i.period_start)} – {formatDate(i.period_end)}
                     </td>

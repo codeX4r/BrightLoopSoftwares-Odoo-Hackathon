@@ -32,10 +32,6 @@ async function loadCounts(): Promise<Counts> {
 }
 
 const PENDING_MODULES = [
-  {
-    label: "Admin subscription and invoice screens",
-    note: "Staff manage these today in the staff panel",
-  },
   { label: "Taxes and discounts", note: "Admin-configured tax and discount rules" },
   { label: "Revenue reports", note: "Monthly and yearly revenue with date ranges" },
 ];
@@ -78,19 +74,19 @@ export default function AdminDashboardPage() {
             <KpiCard
               label="Active subscriptions"
               value={business.data.active_subscriptions}
-              href="/admin/customers"
+              href="/staff/subscriptions"
               note={`${business.data.open_quotations} open quotation${business.data.open_quotations === 1 ? "" : "s"}`}
             />
             <KpiCard
               label="Cash received"
               value={formatINR(business.data.revenue_received)}
-              href="/admin/customers"
+              href="/staff/payments"
               note={`${business.data.payments_count} payment${business.data.payments_count === 1 ? "" : "s"} recorded`}
             />
             <KpiCard
               label="Outstanding"
               value={formatINR(business.data.outstanding_amount)}
-              href="/admin/customers"
+              href="/staff/invoices"
               note={
                 business.data.overdue_invoices > 0
                   ? `${business.data.overdue_invoices} overdue: ${formatINR(business.data.overdue_amount)}`

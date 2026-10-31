@@ -81,7 +81,7 @@ export function AdminShell({ user, children }: { user: CurrentUser; children: Re
         <SidebarLink
           key={`${item.label}-${item.href}`}
           item={item}
-          active={current === item.href && item.label !== "Product Variants"}
+          active={current === item.href && item.label !== "Product Variants" && !item.staffPanel}
           collapsed={collapsed}
         />
       ))}
@@ -256,6 +256,9 @@ function SidebarLink({
         <span className="flex-1 truncate">
           {item.label}
           {!item.ready && <span className="ml-2 text-[10px] text-zinc-500 uppercase">soon</span>}
+          {item.staffPanel && (
+            <span className="ml-2 text-[10px] text-zinc-500 uppercase">staff panel</span>
+          )}
         </span>
       )}
     </Link>

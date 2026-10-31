@@ -8,7 +8,8 @@ import { type CurrentUser, type Role, logout } from "@/lib/auth";
 import { useRequireRole } from "@/lib/use-require-role";
 
 type RoleGuardProps = {
-  role: Role;
+  /** One role, or every role allowed in this area. */
+  role: Role | readonly Role[];
   /** Page heading. Omit when the children render their own headings. */
   title?: string;
   children: (user: CurrentUser) => ReactNode;

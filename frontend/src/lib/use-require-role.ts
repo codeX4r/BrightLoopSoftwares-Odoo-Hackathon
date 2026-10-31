@@ -15,8 +15,12 @@ export type RequireRoleState =
  * Loads the signed-in user and checks the role the backend reports. Signed-out users go to
  * the login page; users with another role go to their own home page. The backend enforces
  * access on every API call, so this check only controls what the browser shows.
+ *
+ * `role` may be one role or a list of allowed roles.
  */
-export function useRequireRole(role: Role): RequireRoleState {
+export function useRequireRole(role: Role | readonly Role[]): RequireRoleState {
+  // A stable key, so passing a new array literal on each render doesn't refetch.
+  const allowedKey = (Array.isArray(role) ? role : [role]).join(",");
   const router = useRouter();
   const [state, setState] = useState<RequireRoleState>({ status: "loading" });
 
@@ -25,7 +29,7 @@ export function useRequireRole(role: Role): RequireRoleState {
     getCurrentUser()
       .then((me) => {
         if (cancelled) return;
-        if (me.role !== role) {
+        if (!allowedKey.split(",").includes(me.role)) {
           router.replace(ROLE_HOME[me.role]);
           return;
         }
@@ -45,7 +49,7 @@ export function useRequireRole(role: Role): RequireRoleState {
     return () => {
       cancelled = true;
     };
-  }, [role, router]);
+  }, [allowedKey, router]);
 
   return state;
 }
