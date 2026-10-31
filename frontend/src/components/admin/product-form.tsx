@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 
 import { useNotify } from "@/components/admin/toast-context";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -57,6 +57,10 @@ export function ProductForm({
   onSaved: (product: Product) => void;
 }) {
   const notify = useNotify();
+  // Unique per instance: Next.js keeps previous pages mounted (hidden), so fixed ids
+  // would collide and labels could point at a hidden page's input.
+  const uid = useId();
+  const fid = (name: string) => `${uid}-${name}`;
   const [values, setValues] = useState<Values>({
     name: product?.name ?? "",
     productTypeId: product?.product_type.id ?? "",
@@ -109,9 +113,9 @@ export function ProductForm({
     >
       <div className="grid gap-5 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <Field label="Product name" htmlFor="product-name" error={errors.name}>
+          <Field label="Product name" htmlFor={fid("name")} error={errors.name}>
             <input
-              id="product-name"
+              id={fid("name")}
               value={values.name}
               maxLength={200}
               onChange={(e) => update("name", e.target.value)}
@@ -123,12 +127,12 @@ export function ProductForm({
 
         <Field
           label="Product type"
-          htmlFor="product-type"
+          htmlFor={fid("type")}
           error={errors.productTypeId}
           hint={productTypes.length === 0 ? undefined : undefined}
         >
           <select
-            id="product-type"
+            id={fid("type")}
             value={values.productTypeId}
             onChange={(e) => update("productTypeId", e.target.value)}
             aria-invalid={Boolean(errors.productTypeId)}
@@ -152,9 +156,9 @@ export function ProductForm({
           </p>
         </Field>
 
-        <Field label="Status" htmlFor="product-status">
+        <Field label="Status" htmlFor={fid("status")}>
           <select
-            id="product-status"
+            id={fid("status")}
             value={values.status}
             onChange={(e) => update("status", e.target.value as ProductStatus)}
             className={inputClass()}
@@ -169,12 +173,12 @@ export function ProductForm({
 
         <Field
           label="Sales price (₹)"
-          htmlFor="product-sales"
+          htmlFor={fid("sales")}
           error={errors.salesPrice}
           hint="Price customers pay, before tax."
         >
           <input
-            id="product-sales"
+            id={fid("sales")}
             inputMode="decimal"
             value={values.salesPrice}
             onChange={(e) => update("salesPrice", e.target.value)}
@@ -186,12 +190,12 @@ export function ProductForm({
 
         <Field
           label="Cost price (₹)"
-          htmlFor="product-cost"
+          htmlFor={fid("cost")}
           error={errors.costPrice}
           hint="What the product costs Brightloop."
         >
           <input
-            id="product-cost"
+            id={fid("cost")}
             inputMode="decimal"
             value={values.costPrice}
             onChange={(e) => update("costPrice", e.target.value)}
@@ -204,11 +208,11 @@ export function ProductForm({
         <div className="sm:col-span-2">
           <Field
             label="Description / notes"
-            htmlFor="product-description"
+            htmlFor={fid("description")}
             error={errors.description}
           >
             <textarea
-              id="product-description"
+              id={fid("description")}
               rows={4}
               value={values.description}
               onChange={(e) => update("description", e.target.value)}

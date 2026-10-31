@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 
 import { useNotify } from "@/components/admin/toast-context";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -79,6 +79,10 @@ function validate(values: Values): Errors {
 /** Create or edit a plan. The server repeats every rule, so these messages are only hints. */
 export function PlanForm({ plan, onSaved }: { plan?: Plan; onSaved: (plan: Plan) => void }) {
   const notify = useNotify();
+  // Unique per instance: Next.js keeps previous pages mounted (hidden), so fixed ids
+  // would collide and labels could point at a hidden page's input.
+  const uid = useId();
+  const fid = (name: string) => `${uid}-${name}`;
   const products = useAsyncData(() => adminApi.listProducts({ limit: 100 }), []);
   const [values, setValues] = useState<Values>(() => initialValues(plan));
   const [errors, setErrors] = useState<Errors>({});
@@ -148,9 +152,9 @@ export function PlanForm({ plan, onSaved }: { plan?: Plan; onSaved: (plan: Plan)
     >
       <div className="grid gap-5 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <Field label="Plan name" htmlFor="plan-name" error={errors.name}>
+          <Field label="Plan name" htmlFor={fid("name")} error={errors.name}>
             <input
-              id="plan-name"
+              id={fid("name")}
               value={values.name}
               maxLength={200}
               onChange={(e) => update("name", e.target.value)}
@@ -161,9 +165,9 @@ export function PlanForm({ plan, onSaved }: { plan?: Plan; onSaved: (plan: Plan)
         </div>
 
         <div className="sm:col-span-2">
-          <Field label="Description" htmlFor="plan-description">
+          <Field label="Description" htmlFor={fid("description")}>
             <textarea
-              id="plan-description"
+              id={fid("description")}
               rows={3}
               value={values.description}
               onChange={(e) => update("description", e.target.value)}
@@ -190,7 +194,7 @@ export function PlanForm({ plan, onSaved }: { plan?: Plan; onSaved: (plan: Plan)
             {productList.map((product) => (
               <Checkbox
                 key={product.id}
-                id={`plan-product-${product.id}`}
+                id={fid(`product-${product.id}`)}
                 label={`${product.name}${product.status === "ARCHIVED" ? " (archived)" : ""}`}
                 hint={formatProductHint(product)}
                 checked={values.productIds.includes(product.id)}
@@ -203,9 +207,9 @@ export function PlanForm({ plan, onSaved }: { plan?: Plan; onSaved: (plan: Plan)
           <p className="mt-1 text-xs text-zinc-500">Archived products can’t be added to a plan.</p>
         </fieldset>
 
-        <Field label="Price (₹)" htmlFor="plan-price" error={errors.price}>
+        <Field label="Price (₹)" htmlFor={fid("price")} error={errors.price}>
           <input
-            id="plan-price"
+            id={fid("price")}
             inputMode="decimal"
             value={values.price}
             onChange={(e) => update("price", e.target.value)}
@@ -215,9 +219,9 @@ export function PlanForm({ plan, onSaved }: { plan?: Plan; onSaved: (plan: Plan)
           />
         </Field>
 
-        <Field label="Billing frequency" htmlFor="plan-frequency">
+        <Field label="Billing frequency" htmlFor={fid("frequency")}>
           <select
-            id="plan-frequency"
+            id={fid("frequency")}
             value={values.billingFrequency}
             onChange={(e) => update("billingFrequency", e.target.value as BillingFrequency)}
             className={inputClass()}
@@ -230,9 +234,9 @@ export function PlanForm({ plan, onSaved }: { plan?: Plan; onSaved: (plan: Plan)
           </select>
         </Field>
 
-        <Field label="Minimum quantity" htmlFor="plan-min-qty" error={errors.minimumQuantity}>
+        <Field label="Minimum quantity" htmlFor={fid("min-qty")} error={errors.minimumQuantity}>
           <input
-            id="plan-min-qty"
+            id={fid("min-qty")}
             inputMode="numeric"
             value={values.minimumQuantity}
             onChange={(e) => update("minimumQuantity", e.target.value)}
@@ -241,9 +245,9 @@ export function PlanForm({ plan, onSaved }: { plan?: Plan; onSaved: (plan: Plan)
           />
         </Field>
 
-        <Field label="Status" htmlFor="plan-status">
+        <Field label="Status" htmlFor={fid("status")}>
           <select
-            id="plan-status"
+            id={fid("status")}
             value={values.status}
             onChange={(e) => update("status", e.target.value as PlanStatus)}
             className={inputClass()}
@@ -254,9 +258,9 @@ export function PlanForm({ plan, onSaved }: { plan?: Plan; onSaved: (plan: Plan)
           </select>
         </Field>
 
-        <Field label="Available from" htmlFor="plan-from" error={errors.availableFrom}>
+        <Field label="Available from" htmlFor={fid("from")} error={errors.availableFrom}>
           <input
-            id="plan-from"
+            id={fid("from")}
             type="date"
             value={values.availableFrom}
             onChange={(e) => update("availableFrom", e.target.value)}
@@ -267,12 +271,12 @@ export function PlanForm({ plan, onSaved }: { plan?: Plan; onSaved: (plan: Plan)
 
         <Field
           label="Available until"
-          htmlFor="plan-until"
+          htmlFor={fid("until")}
           error={errors.availableUntil}
           hint="Leave empty for no end date. After this date the plan can't be sold."
         >
           <input
-            id="plan-until"
+            id={fid("until")}
             type="date"
             value={values.availableUntil}
             onChange={(e) => update("availableUntil", e.target.value)}
@@ -285,25 +289,25 @@ export function PlanForm({ plan, onSaved }: { plan?: Plan; onSaved: (plan: Plan)
       <fieldset className="space-y-3 rounded-lg border border-zinc-200 p-4">
         <legend className="px-1 text-sm font-medium text-zinc-800">Lifecycle options</legend>
         <Checkbox
-          id="plan-auto-close"
+          id={fid("auto-close")}
           label="Close automatically when the plan expires"
           checked={values.autoCloseOnExpiry}
           onChange={(checked) => update("autoCloseOnExpiry", checked)}
         />
         <Checkbox
-          id="plan-early-close"
+          id={fid("early-close")}
           label="Allow early closure"
           checked={values.allowEarlyClosure}
           onChange={(checked) => update("allowEarlyClosure", checked)}
         />
         <Checkbox
-          id="plan-pause"
+          id={fid("pause")}
           label="Allow pausing"
           checked={values.allowPause}
           onChange={(checked) => update("allowPause", checked)}
         />
         <Checkbox
-          id="plan-renewal"
+          id={fid("renewal")}
           label="Allow renewal"
           checked={values.allowRenewal}
           onChange={(checked) => update("allowRenewal", checked)}

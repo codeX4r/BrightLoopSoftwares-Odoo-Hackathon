@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 
 import { useNotify } from "@/components/admin/toast-context";
 import { Button } from "@/components/ui/button";
@@ -165,6 +165,8 @@ function VariantModal({
   onSaved: () => void;
 }) {
   const notify = useNotify();
+  const uid = useId();
+  const fid = (name: string) => `${uid}-${name}`;
   const [name, setName] = useState(variant?.name ?? "");
   const [additional, setAdditional] = useState(variant?.additional_price ?? "0.00");
   const [description, setDescription] = useState(variant?.description ?? "");
@@ -209,21 +211,21 @@ function VariantModal({
           <Button variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button type="submit" form="variant-form" loading={saving}>
+          <Button type="submit" form={fid("form")} loading={saving}>
             {variant ? "Save variant" : "Add variant"}
           </Button>
         </>
       }
     >
-      <form id="variant-form" onSubmit={handleSubmit} noValidate className="space-y-4">
+      <form id={fid("form")} onSubmit={handleSubmit} noValidate className="space-y-4">
         <Field
           label="Variant name"
-          htmlFor="variant-name"
+          htmlFor={fid("name")}
           error={errors.name}
           hint="For example: Default or Odoo."
         >
           <input
-            id="variant-name"
+            id={fid("name")}
             value={name}
             maxLength={100}
             onChange={(e) => setName(e.target.value)}
@@ -233,12 +235,12 @@ function VariantModal({
         </Field>
         <Field
           label="Additional price (₹)"
-          htmlFor="variant-additional"
+          htmlFor={fid("additional")}
           error={errors.additional}
           hint="Added to the product's sales price. Use 0.00 for no change."
         >
           <input
-            id="variant-additional"
+            id={fid("additional")}
             inputMode="decimal"
             value={additional}
             onChange={(e) => setAdditional(e.target.value)}
@@ -246,18 +248,18 @@ function VariantModal({
             className={inputClass(Boolean(errors.additional))}
           />
         </Field>
-        <Field label="Description" htmlFor="variant-description">
+        <Field label="Description" htmlFor={fid("description")}>
           <textarea
-            id="variant-description"
+            id={fid("description")}
             rows={3}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             className={inputClass()}
           />
         </Field>
-        <Field label="Status" htmlFor="variant-status">
+        <Field label="Status" htmlFor={fid("status")}>
           <select
-            id="variant-status"
+            id={fid("status")}
             value={status}
             onChange={(e) => setStatus(e.target.value as ProductStatus)}
             className={inputClass()}

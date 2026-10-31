@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 
 import { useNotify } from "@/components/admin/toast-context";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { useAsyncData } from "@/lib/use-async-data";
 
 export default function ProductTypesPage() {
   const notify = useNotify();
+  const nameId = useId();
   const types = useAsyncData(adminApi.listProductTypes, []);
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState<string | undefined>();
@@ -63,9 +64,9 @@ export default function ProductTypesPage() {
         className="flex flex-wrap items-end gap-3 rounded-xl border border-zinc-200 bg-white p-5"
       >
         <div className="min-w-64 flex-1">
-          <Field label="New product type" htmlFor="type-name" error={nameError}>
+          <Field label="New product type" htmlFor={nameId} error={nameError}>
             <input
-              id="type-name"
+              id={nameId}
               value={name}
               maxLength={100}
               onChange={(e) => setName(e.target.value)}
