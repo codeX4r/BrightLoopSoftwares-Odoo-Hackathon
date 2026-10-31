@@ -210,16 +210,3 @@ cd frontend
 npm run lint
 npm run build
 ```
-
-## 10. Current Limitations
-
-- Production email delivery is not fully integrated.
-- Payment gateway integration and automated payment collection are not included.
-- Production deployment configuration is not included.
-- Some UI workflows may require further manual testing and refinement.
-
----
-
-**Subscription Management System**
-
-*Simplifying subscriptions. Automating billing. Improving business operations.*
