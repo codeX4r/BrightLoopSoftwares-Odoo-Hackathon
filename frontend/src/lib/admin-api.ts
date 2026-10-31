@@ -213,8 +213,17 @@ export type PaymentBrief = {
   paid_on: string;
 };
 
-export type CustomerRow = Account & { figures: CustomerFigures };
-export type StaffRow = Account & { figures: StaffFigures };
+/** Name fields come from the profile and are null until someone fills them in. */
+export type CustomerRow = Account & {
+  figures: CustomerFigures;
+  full_name: string | null;
+  company_name: string | null;
+};
+export type StaffRow = Account & {
+  figures: StaffFigures;
+  full_name: string | null;
+  phone: string | null;
+};
 export type CustomerDetail = CustomerRow & { recent_payments: PaymentBrief[] };
 export type StaffDetail = StaffRow & { recent_payments: PaymentBrief[] };
 
