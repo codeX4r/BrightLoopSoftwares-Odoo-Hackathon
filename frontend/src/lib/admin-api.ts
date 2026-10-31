@@ -3,7 +3,13 @@
  * (for example "2560.00") and are displayed as-is or with formatINR.
  */
 import { apiRequest } from "@/lib/api";
-import type { BillingFrequency } from "@/lib/staff-api";
+import type {
+  BillingFrequency,
+  InvoiceSummary,
+  Page as StaffPage,
+  StaffDashboard,
+  SubscriptionSummary,
+} from "@/lib/staff-api";
 
 export type ProductStatus = "ACTIVE" | "ARCHIVED";
 export type PlanStatus = "ACTIVE" | "INACTIVE" | "ARCHIVED";
@@ -165,4 +171,101 @@ export const adminApi = {
     apiRequest<Plan>("/api/admin/plans", { method: "POST", body: input }),
   updatePlan: (id: string, input: Partial<PlanInput>) =>
     apiRequest<Plan>(`/api/admin/plans/${id}`, { method: "PATCH", body: input }),
+};
+
+// --- Customers and staff -----------------------------------------------------
+
+export type AccountRole = "ADMIN" | "STAFF" | "CUSTOMER";
+
+type Account = {
+  id: string;
+  email: string;
+  role: AccountRole;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CustomerFigures = {
+  subscriptions_total: number;
+  active_subscriptions: number;
+  /** Confirmed or paid invoices only; drafts and cancelled invoices don't count. */
+  invoices_total: number;
+  invoiced_amount: string;
+  paid_amount: string;
+  outstanding_amount: string;
+  overdue_invoices: number;
+};
+
+export type StaffFigures = {
+  subscriptions_created: number;
+  payments_recorded: number;
+  payments_amount: string;
+};
+
+export type PaymentBrief = {
+  id: string;
+  invoice_id: string;
+  invoice_number: string;
+  customer_email: string;
+  amount: string;
+  method: string;
+  paid_on: string;
+};
+
+export type CustomerRow = Account & { figures: CustomerFigures };
+export type StaffRow = Account & { figures: StaffFigures };
+export type CustomerDetail = CustomerRow & { recent_payments: PaymentBrief[] };
+export type StaffDetail = StaffRow & { recent_payments: PaymentBrief[] };
+
+export type AccountFilters = {
+  q?: string;
+  is_active?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
+export type NewAccountInput = { email: string; password: string };
+
+/** is_active=false must reach the API, so it can't go through `query` (which skips false). */
+function accountQuery(filters: AccountFilters): string {
+  const { is_active, ...rest } = filters;
+  const base = query({ ...rest });
+  if (is_active === undefined) return base;
+  return `${base}${base ? "&" : "?"}is_active=${is_active}`;
+}
+
+export const peopleApi = {
+  listCustomers: (filters: AccountFilters) =>
+    apiRequest<Page<CustomerRow>>(`/api/admin/customers${accountQuery(filters)}`),
+  getCustomer: (id: string) => apiRequest<CustomerDetail>(`/api/admin/customers/${id}`),
+  createCustomer: (input: NewAccountInput) =>
+    apiRequest<CustomerRow>("/api/admin/customers", { method: "POST", body: input }),
+
+  listStaff: (filters: AccountFilters) =>
+    apiRequest<Page<StaffRow>>(`/api/admin/staff${accountQuery(filters)}`),
+  getStaff: (id: string) => apiRequest<StaffDetail>(`/api/admin/staff/${id}`),
+  /** Existing admin-only endpoint for staff creation. */
+  createStaff: (input: NewAccountInput) =>
+    apiRequest<Account>("/api/users/staff", { method: "POST", body: input }),
+
+  /** Existing admin-only endpoint; works for customers and staff. */
+  setActive: (id: string, isActive: boolean) =>
+    apiRequest<Account>(`/api/users/${id}/status`, {
+      method: "PATCH",
+      body: { is_active: isActive },
+    }),
+
+  // A customer's history, from the staff API (admins are allowed there).
+  customerSubscriptions: (customerId: string, page: number) =>
+    apiRequest<StaffPage<SubscriptionSummary>>(
+      `/api/staff/subscriptions${query({ customer_id: customerId, page, page_size: 10 })}`,
+    ),
+  customerInvoices: (customerId: string, page: number) =>
+    apiRequest<StaffPage<InvoiceSummary>>(
+      `/api/staff/invoices${query({ customer_id: customerId, page, page_size: 10 })}`,
+    ),
+
+  /** Business figures for the admin dashboard, from the staff dashboard API. */
+  businessOverview: () => apiRequest<StaffDashboard>("/api/staff/dashboard"),
 };

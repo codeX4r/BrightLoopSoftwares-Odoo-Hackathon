@@ -4,7 +4,8 @@ import Link from "next/link";
 
 import { Button, buttonClass } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/ui/feedback";
-import { adminApi } from "@/lib/admin-api";
+import { adminApi, peopleApi } from "@/lib/admin-api";
+import { formatINR } from "@/lib/format";
 import { useAsyncData } from "@/lib/use-async-data";
 
 type Counts = {
@@ -31,15 +32,17 @@ async function loadCounts(): Promise<Counts> {
 }
 
 const PENDING_MODULES = [
-  { label: "Customers", note: "Customer accounts and profiles" },
-  { label: "Subscriptions", note: "Lifecycle, renewals and closures" },
-  { label: "Invoices", note: "Recurring billing and invoice status" },
-  { label: "Payments", note: "Recorded payments and outstanding balances" },
-  { label: "Revenue reports", note: "Collected cash, invoiced amounts and receivables" },
+  {
+    label: "Admin subscription and invoice screens",
+    note: "Staff manage these today in the staff panel",
+  },
+  { label: "Taxes and discounts", note: "Admin-configured tax and discount rules" },
+  { label: "Revenue reports", note: "Monthly and yearly revenue with date ranges" },
 ];
 
 export default function AdminDashboardPage() {
   const counts = useAsyncData(loadCounts, []);
+  const business = useAsyncData(peopleApi.businessOverview, []);
 
   return (
     <div className="space-y-8">
@@ -47,7 +50,7 @@ export default function AdminDashboardPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Dashboard</h1>
           <p className="mt-1 text-sm text-zinc-600">
-            Catalog overview. Figures come straight from the database.
+            Business and catalog overview. Every figure comes straight from the database.
           </p>
         </div>
         <div className="flex gap-3">
@@ -60,6 +63,46 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
+      {business.loading && !business.data && <LoadingState />}
+      {business.error && <ErrorState message={business.error} onRetry={business.reload} />}
+      {business.data && (
+        <section aria-label="Business summary" className="space-y-3">
+          <h2 className="text-sm font-semibold text-zinc-900">Customers and billing</h2>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <KpiCard
+              label="Customers"
+              value={business.data.total_customers}
+              href="/admin/customers"
+              note={`${business.data.active_customers} active`}
+            />
+            <KpiCard
+              label="Active subscriptions"
+              value={business.data.active_subscriptions}
+              href="/admin/customers"
+              note={`${business.data.open_quotations} open quotation${business.data.open_quotations === 1 ? "" : "s"}`}
+            />
+            <KpiCard
+              label="Cash received"
+              value={formatINR(business.data.revenue_received)}
+              href="/admin/customers"
+              note={`${business.data.payments_count} payment${business.data.payments_count === 1 ? "" : "s"} recorded`}
+            />
+            <KpiCard
+              label="Outstanding"
+              value={formatINR(business.data.outstanding_amount)}
+              href="/admin/customers"
+              note={
+                business.data.overdue_invoices > 0
+                  ? `${business.data.overdue_invoices} overdue: ${formatINR(business.data.overdue_amount)}`
+                  : `${business.data.outstanding_invoices} unpaid invoice${business.data.outstanding_invoices === 1 ? "" : "s"}, none overdue`
+              }
+              alert={business.data.overdue_invoices > 0}
+            />
+          </div>
+        </section>
+      )}
+
+      <h2 className="text-sm font-semibold text-zinc-900">Catalog</h2>
       {counts.loading && <LoadingState />}
       {counts.error && <ErrorState message={counts.error} onRetry={counts.reload} />}
       {counts.data && (
@@ -98,7 +141,14 @@ export default function AdminDashboardPage() {
       </section>
 
       <div>
-        <Button variant="ghost" size="sm" onClick={counts.reload}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            counts.reload();
+            business.reload();
+          }}
+        >
           Refresh figures
         </Button>
       </div>
@@ -106,14 +156,29 @@ export default function AdminDashboardPage() {
   );
 }
 
-function KpiCard({ label, value, href }: { label: string; value: number; href: string }) {
+function KpiCard({
+  label,
+  value,
+  href,
+  note,
+  alert = false,
+}: {
+  label: string;
+  value: number | string;
+  href: string;
+  note?: string;
+  alert?: boolean;
+}) {
   return (
     <Link
       href={href}
       className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-indigo-300"
     >
       <p className="text-sm font-medium text-zinc-500">{label}</p>
-      <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900">{value}</p>
+      <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 tabular-nums">
+        {value}
+      </p>
+      {note && <p className={`mt-1 text-xs ${alert ? "text-red-600" : "text-zinc-500"}`}>{note}</p>}
     </Link>
   );
 }
