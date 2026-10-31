@@ -93,8 +93,13 @@ later never changes old quotations or invoices.
 | Change password while signed in | Not started | Auth area |
 | Emailing invoices and quotations | Partly done | "Mark as sent" plus print/PDF work; real sending needs an email service |
 | Billing runs every day on its own | Ready, not scheduled | The job exists (`uv run python -m app.jobs.billing`); schedule it as a daily cron job when deploying, for example on Render. Until then use "Generate due invoices" on the dashboard. |
-| Staff deactivating a customer | Decision needed | Today only an admin can do it (`/api/users/{id}/status`) |
 | Limit on sign-ups per person | Not started | Low priority for the demo |
+
+**Decided:** only an admin can deactivate or reactivate a customer. Staff can't, and that's
+intended. The backend for it already exists (`PATCH /api/users/{id}/status`, admin only). The
+button for it belongs on the admin screens, so it's admin-section work, not staff or
+customer. A deactivated customer is already blocked from signing in, and staff see them
+marked "Deactivated" in the customer list.
 
 ---
 
