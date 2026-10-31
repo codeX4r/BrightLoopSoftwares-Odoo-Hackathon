@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { BrandLogo } from "@/components/brand-logo";
 
@@ -47,6 +48,12 @@ export default function LoginPage() {
           <div className="mt-8">
             <LoginForm />
           </div>
+          <p className="mt-6 text-center text-sm text-zinc-600">
+            New customer?{" "}
+            <Link href="/signup" className="font-semibold text-indigo-600 hover:text-indigo-500">
+              Create an account
+            </Link>
+          </p>
         </div>
       </section>
     </main>

@@ -268,28 +268,44 @@ def test_deactivated_user_token_stops_working(
     assert client.get("/api/auth/me", headers=staff_headers).status_code == 401
 
 
-def test_no_public_registration_endpoint_exists(client: TestClient) -> None:
+def test_only_customer_signup_is_public(client: TestClient) -> None:
+    """Customers can register themselves; admin and staff accounts can't be self-created."""
     paths = client.get("/openapi.json").json()["paths"]
-    for path in paths:
-        assert not any(
-            word in path.lower() for word in ("register", "signup", "sign-up")
-        )
-    # The only account-creating endpoint is the admin-only staff endpoint.
+    registration = [
+        path
+        for path in paths
+        if any(word in path.lower() for word in ("register", "signup", "sign-up"))
+    ]
+    assert registration == ["/api/auth/signup"]
+    # The only other account-creating endpoint is the admin-only staff endpoint.
     creating = [
         p for p, ops in paths.items() if "post" in ops and p.startswith("/api/users")
     ]
     assert creating == ["/api/users/staff"]
 
-    for path in (
-        "/api/auth/register",
-        "/api/auth/signup",
-        "/api/users",
-        "/api/register",
-    ):
+    for path in ("/api/auth/register", "/api/users", "/api/register"):
         response = client.post(
             path, json={"email": "x@brightloop.com", "password": PASSWORD}
         )
         assert response.status_code in (404, 405), path
+
+    # Asking for another role is refused outright rather than silently ignored.
+    for role in ("ADMIN", "STAFF"):
+        response = client.post(
+            "/api/auth/signup",
+            json={
+                "email": f"{role.lower()}@example.com",
+                "password": PASSWORD,
+                "role": role,
+            },
+        )
+        assert response.status_code == 422, role
+
+    response = client.post(
+        "/api/auth/signup", json={"email": "new@example.com", "password": PASSWORD}
+    )
+    assert response.status_code == 201
+    assert response.json()["role"] == "CUSTOMER"
 
 
 def test_passwords_are_stored_as_argon2_hashes(db: Session, admin: User) -> None:
